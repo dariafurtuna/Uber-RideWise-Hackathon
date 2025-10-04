@@ -1,6 +1,9 @@
 import "/styles/Wellness.css";
+import { useWaterHook } from "./hooks/waterHook";
 
 export default function Wellness() {
+  const { visible, markAsDone } = useWaterHook();
+
   return (
     <div className="page wellness-page">
       <header className="wellness-header">
@@ -9,24 +12,35 @@ export default function Wellness() {
       </header>
 
       <section className="wellness-grid">
-        <div className="card">
+        <div className={`card ${visible ? "visible" : "hidden"}`}>
           <div className="icon">💧</div>
           <h2>Stay Hydrated</h2>
-          <p>It’s been over an hour since your last break. Remember to drink water regularly to stay alert.</p>
-          <button className="btn-blue-outline">Mark as Done</button>
+          <p>
+            It’s been over an hour since your last break. Remember to drink
+            water regularly to stay alert.
+          </p>
+          <button className="btn-blue-outline" onClick={markAsDone}>
+            Mark as Done
+          </button>
         </div>
 
         <div className="card">
           <div className="icon">🧘‍♀️</div>
           <h2>Stretch Break</h2>
-          <p>Quick 2-minute stretches can reduce fatigue and improve focus. Try neck rolls and shoulder shrugs.</p>
+          <p>
+            Quick 2-minute stretches can reduce fatigue and improve focus. Try
+            neck rolls and shoulder shrugs.
+          </p>
           <button className="btn-blue-outline">View Exercises</button>
         </div>
 
         <div className="card">
           <div className="icon">🕓</div>
           <h2>Rest Reminder</h2>
-          <p>You’ve been online for 4.5 hours. Consider wrapping up in the next hour for optimal rest.</p>
+          <p>
+            You’ve been online for 4.5 hours. Consider wrapping up in the next
+            hour for optimal rest.
+          </p>
           <button className="btn-blue-outline">Set End Time</button>
         </div>
       </section>
@@ -35,7 +49,10 @@ export default function Wellness() {
         <div className="card wide">
           <div className="icon">🌦️</div>
           <h2>Weather Advisory</h2>
-          <p>Light rain expected in 30 minutes. Drive carefully, increase following distance, and plan shorter trips if needed.</p>
+          <p>
+            Light rain expected in 30 minutes. Drive carefully, increase
+            following distance, and plan shorter trips if needed.
+          </p>
           <div className="button-row">
             <button className="btn-blue-outline">View Forecast</button>
             <button className="btn-blue-outline">Safety Tips</button>

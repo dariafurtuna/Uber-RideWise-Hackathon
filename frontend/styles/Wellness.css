@@ -47,6 +47,14 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 
+.card.hidden {
+  display: none;
+}
+
+.card.visible {
+  display: block;
+}
+
 .icon {
   font-size: 1.8rem;
   margin-bottom: 0.5rem;

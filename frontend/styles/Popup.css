@@ -1,0 +1,100 @@
+/* === Universal Popup Style === */
+.popup {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--bg-mid);
+  color: var(--text-light);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem 1.8rem;
+  width: 320px;
+  max-width: 90vw;
+  z-index: 1000;
+  animation: popup-slide-in 0.4s ease;
+}
+
+/* Inner content layout */
+.popup-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.popup-inner h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+.popup-inner p {
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin: 0 0 0.4rem;
+  line-height: 1.4;
+}
+
+/* Buttons reuse existing global button styles */
+.popup-inner .btn-green,
+.popup-inner .btn-blue-outline {
+  align-self: flex-end;
+  width: 100%;
+}
+
+/* Entry animation */
+@keyframes popup-slide-in {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Optional closing fade animation */
+.popup.fade-out {
+  animation: popup-fade-out 0.3s ease forwards;
+}
+
+@keyframes popup-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+/* Water Popup Style */
+.water-popup {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  padding: 20px;
+  transition:
+    transform 0.3s ease,
+    opacity 0.3s ease;
+}
+
+.water-popup.slide-out {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .popup {
+    bottom: 16px;
+    right: 16px;
+    width: 280px;
+    padding: 1.2rem 1.4rem;
+  }
+}
