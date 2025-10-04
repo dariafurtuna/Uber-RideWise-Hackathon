@@ -4,6 +4,7 @@ from .hist import (
     rating_anchors_for_city,
     duration_anchors_for_city,
     profitability_anchors_for_city,
+    surge_multiplier_for_city_hour,   # NEW
 )
 from .scoring import (
     score_pickup,
@@ -11,7 +12,7 @@ from .scoring import (
     score_time,
     score_profitability,
 )
-from .utils import clamp
+from .utils import clamp, hour_from_iso   # UPDATED: import hour_from_iso
 
 
 def rate_ride(candidate: RideCandidate, debug: bool = False) -> RideRating:
@@ -31,12 +32,15 @@ def rate_ride(candidate: RideCandidate, debug: bool = False) -> RideRating:
     dur_anchors = duration_anchors_for_city(candidate.city_id)
     time_score, time_reason = score_time(dur_anchors, candidate.est_duration_mins)
 
-    # --- profitability (using historical anchors) ---
+    # --- profitability (historical anchors) + surge awareness ---
     prof_anchors = profitability_anchors_for_city(candidate.city_id)
+    req_hour = int(hour_from_iso(candidate.request_time))  # 0..23
+    surge_mult = surge_multiplier_for_city_hour(candidate.city_id, req_hour)
     prof_score, prof_reason = score_profitability(
         prof_anchors,
         candidate.est_distance_km,
         candidate.est_duration_mins,
+        surge_mult=surge_mult,  # NEW
     )
 
     # --- traffic (live via Google Maps or MOCK) ---
@@ -83,6 +87,7 @@ def rate_ride(candidate: RideCandidate, debug: bool = False) -> RideRating:
             "customer": customer_anchors,
             "time": dur_anchors,
             "profitability": prof_anchors,
+            "surge": {"hour": req_hour, "multiplier": surge_mult},  # NEW
             "notes": "traffic uses Google Maps (or MOCK_TRAFFIC).",
         }
 

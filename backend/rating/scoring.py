@@ -73,17 +73,16 @@ def score_time(anchors: dict, est_duration_mins: float) -> Tuple[float, str]:
     reason = f"Est. {est_duration_mins:.0f} min vs P25 {p25:.0f} / P75 {p75:.0f}"
     return score, reason
 
+# add surge_mult param (default 1.0) and mention it in reason
 def score_profitability(anchors: dict,
                         est_distance_km: float,
-                        est_duration_mins: float) -> Tuple[float, str]:
-    """
-    Estimate €/min from trip estimates and compare against historical anchors.
-    """
+                        est_duration_mins: float,
+                        surge_mult: float = 1.0) -> tuple[float, str]:
     if est_duration_mins <= 0:
         return 50.0, "Invalid duration"
 
-    # simple estimate: assume fare ≈ €1.2/km (can refine later with surge/tips)
-    est_net = 1.2 * est_distance_km
+    # base €1.2/km * surge
+    est_net = 1.2 * est_distance_km * max(0.0, surge_mult)
     npm = est_net / est_duration_mins
 
     p25 = anchors.get("p25") or 0.25
@@ -92,5 +91,6 @@ def score_profitability(anchors: dict,
     score = linear_scale(npm, p25, p75, 40, 90)
     score = clamp(score, 0, 100)
 
-    reason = f"~€{est_net:.2f} est. (~€{npm:.2f}/min) vs P25 {p25:.2f} / P75 {p75:.2f}"
+    surge_note = f" x{surge_mult:.2f} surge" if surge_mult and surge_mult != 1.0 else ""
+    reason = f"~€{est_net:.2f} est. (~€{npm:.2f}/min){surge_note} vs P25 {p25:.2f} / P75 {p75:.2f}"
     return score, reason

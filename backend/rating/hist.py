@@ -120,4 +120,30 @@ def profitability_anchors_for_city(city_id: int, sample_limit: int = 1000) -> di
         "p75": percentile(vals, 75),
     }
 
+def surge_multiplier_for_city_hour(city_id: int, hour_0_23: int) -> float:
+    """
+    Fetch surge multiplier for city and hour from surge_by_hour.
+    Fallback to 1.0 if table/cols missing or no row.
+    """
+    if not _table_has_columns("surge_by_hour", ["city_id", "hour", "surge_multiplier"]):
+        return 1.0
+
+    rows = _q(
+        """
+        SELECT surge_multiplier
+        FROM surge_by_hour
+        WHERE city_id = ? AND hour = ?
+        ORDER BY ROWID DESC
+        LIMIT 1
+        """,
+        (city_id, int(hour_0_23)),
+    )
+    if not rows:
+        return 1.0
+    try:
+        return float(rows[0]["surge_multiplier"]) or 1.0
+    except Exception:
+        return 1.0
+
+
 
