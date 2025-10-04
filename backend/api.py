@@ -183,6 +183,18 @@ def earner_today(earner_id: str):
     """, (earner_id, today_str))
     return result[0] if result else {"today_earnings": 0}
 
+@app.get("/earners/{earner_id}/today_time")
+def earner_today_time(earner_id: str):
+    today_str = date.today().isoformat()
+    result = q("""
+        SELECT COALESCE(SUM(rides_duration_mins + eats_duration_mins), 0) AS minutes
+        FROM earnings_daily
+        WHERE earner_id = ? AND date = ?;
+    """, (earner_id, today_str))
+    minutes = result[0]["minutes"] if result else 0
+    hours = round(minutes / 60, 2)
+    return {"today_time_hours": hours}
+
 @app.get("/earners/top")
 def top_earners(limit: int = 10):
     return q("""
