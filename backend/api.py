@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 from pathlib import Path
+from datetime import datetime
 
 # Resolve DB path relative to the repo root (parent of this 'backend' folder)
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -57,3 +58,34 @@ def incentives(earner_id: str):
         WHERE earner_id = ?
         ORDER BY week DESC;
     """, (earner_id,))
+
+
+@app.get("/forecast/{city_id}/today")
+def forecast_today(city_id: int):
+    dow = int(datetime.utcnow().strftime("%w"))  # 0=Sun..6=Sat
+
+    hourly = q("""
+        SELECT hour, trips, eph
+        FROM v_city_hour_forecast
+        WHERE city_id = ? AND dow = ?
+        ORDER BY hour
+    """, (city_id, dow))
+
+    # fallback if no rides history
+    if not hourly:
+        surge = q("""
+            SELECT hour, surge_multiplier
+            FROM surge_by_hour
+            WHERE city_id = ?
+            ORDER BY hour
+        """, (city_id,))
+        hourly = [
+            {"hour": r["hour"], "trips": None, "eph": round(20 * r["surge_multiplier"], 2)}
+            for r in surge
+        ]
+
+    return {
+        "city_id": city_id,
+        "dow": dow,
+        "forecast": hourly  # 24-hour array: hour, trips, eph
+    }
