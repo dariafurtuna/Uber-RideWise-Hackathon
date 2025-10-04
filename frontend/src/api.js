@@ -1,4 +1,4 @@
-// src/api.js
+// src/api.js 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 async function get(path) {
@@ -23,14 +23,32 @@ async function post(path, body) {
 
 export const api = {
   topEarners: (limit = 10) => get(`/earners/top?limit=${limit}`),
-  earnerDaily: (earnerId, limit = 14) =>
-    get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
-  incentives: (earnerId) =>
-    get(`/incentives/${encodeURIComponent(earnerId)}`),
   earnerToday: (earnerId) =>
     get(`/earners/${encodeURIComponent(earnerId)}/today`),
   earnerTodayTime: (earnerId) =>
     get(`/earners/${encodeURIComponent(earnerId)}/today_time`),
+  earnerDaily: (earnerId, limit = 14) => get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
+  incentives: (earnerId) => get(`/incentives/${encodeURIComponent(earnerId)}`),
+  earnerToday: (earnerId) => get(`/earners/${encodeURIComponent(earnerId)}/today`), // ✅ new
+  // NEW: rate a ride (set debug=true to include anchors)
+  rateRide: (payload, debug = false) =>
+  post(`/rides/rate?debug=${debug}`, payload),
+  heatmapPredict: async ({
+    lat,
+    lng,
+    radiusKm = 3,
+    whenISO,
+    weight = "count",
+  }) => {
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lng: String(lng),
+      radius_km: String(radiusKm),
+      weight,
+      when: whenISO,
+    });
+    return get(`/heatmap/predict?${params.toString()}`);
+  },
 };
 
 
@@ -40,5 +58,7 @@ export async function getForecast(cityId, dayOfWeek) {
   const res = await fetch(`http://127.0.0.1:8000/forecast/${cityId}/${dow}`);
   if (!res.ok) throw new Error("API error");
   return res.json();
-}
-;
+};
+
+// Named export for HeatmapView.jsx compatibility
+export const fetchPredictedHeat = api.heatmapPredict;

@@ -1,6 +1,8 @@
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom"; // ✅ import navigation
 import { api } from "./api";
+import HeatmapView from "./HeatmapView";
 import "/styles/DriveStats.css";
 
 export default function DriveStats() {
@@ -50,10 +52,7 @@ export default function DriveStats() {
 
       <main className="dashboard">
         <section className="map-panel">
-          <div className="map-inner">
-            <h2>Map</h2>
-            <p>Integrated from another branch</p>
-          </div>
+          <HeatmapView />
         </section>
 
         <aside className="cards-grid">
