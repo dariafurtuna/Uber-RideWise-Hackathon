@@ -109,7 +109,7 @@ export default function LandingPage() {
           </div>
         </div>
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/drive-stats")}
           style={{
             marginTop: 48,
             padding: "12px 32px",
