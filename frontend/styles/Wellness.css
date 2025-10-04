@@ -1,0 +1,107 @@
+@import "/styles/global.css";
+
+/* === Wellness Layout === */
+.wellness-page {
+  background: var(--bg-dark);
+  color: var(--text-light);
+}
+
+.wellness-header {
+  text-align: left;
+  margin-bottom: 2rem;
+}
+
+.wellness-header h1 {
+  color: var(--text-light);
+  font-size: 2rem;
+  margin-bottom: 0.3rem;
+}
+
+.wellness-header p {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+/* === Card Layout === */
+.wellness-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: var(--bg-mid);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.5rem;
+  flex: 1 1 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+
+.icon {
+  font-size: 1.8rem;
+  margin-bottom: 0.5rem;
+}
+
+/* === Buttons === */
+.btn-blue-outline {
+  background: transparent;
+  color: var(--blue);
+  border: 2px solid var(--blue);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.btn-blue-outline:hover {
+  background: var(--blue);
+  color: #fff;
+}
+
+.full {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+/* === Wide Section === */
+.wide-section {
+  margin-bottom: 2rem;
+}
+
+.card.wide {
+  flex: 1 1 100%;
+}
+
+.button-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* === Schedule Section === */
+.schedule {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.schedule-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.schedule-item.peak {
+  background: rgba(6, 193, 103, 0.1);
+  border-radius: 10px;
+  padding: 1rem;
+}

@@ -22,14 +22,29 @@ async function post(path, body) {
 }
 
 export const api = {
+  // === Earnings ===
   topEarners: (limit = 10) => get(`/earners/top?limit=${limit}`),
-  earnerDaily: (earnerId, limit = 14) => get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
-  incentives: (earnerId) => get(`/incentives/${encodeURIComponent(earnerId)}`),
-  getNudges,
-  earnerToday: (earnerId) => get(`/earners/${encodeURIComponent(earnerId)}/today`), // ✅ new
-  // NEW: rate a ride (set debug=true to include anchors)
+
+  earnerDaily: (earnerId, limit = 14) =>
+    get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
+
+  incentives: (earnerId) =>
+    get(`/incentives/${encodeURIComponent(earnerId)}`),
+
+  earnerToday: (earnerId) =>
+    get(`/earners/${encodeURIComponent(earnerId)}/today`),
+
+  earnerTodayTime: (earnerId) =>
+    get(`/earners/${encodeURIComponent(earnerId)}/today_time`),
+
+  // === Wellness & Nudges ===
+  getNudges: () => get(`/nudges`),
+
+  // === Ride Management ===
   rateRide: (payload, debug = false) =>
-  post(`/rides/rate?debug=${debug}`, payload),
+    post(`/rides/rate?debug=${debug}`, payload),
+
+  // === Heatmap Prediction ===
   heatmapPredict: async ({
     lat,
     lng,
