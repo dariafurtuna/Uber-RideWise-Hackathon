@@ -11,12 +11,25 @@ async function getNudges(earnerId) {
   return get(`/nudges/${encodeURIComponent(earnerId)}`);
 }
 
+async function post(path, body) {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
 export const api = {
   topEarners: (limit = 10) => get(`/earners/top?limit=${limit}`),
   earnerDaily: (earnerId, limit = 14) => get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
   incentives: (earnerId) => get(`/incentives/${encodeURIComponent(earnerId)}`),
   getNudges,
   earnerToday: (earnerId) => get(`/earners/${encodeURIComponent(earnerId)}/today`), // ✅ new
+  // NEW: rate a ride (set debug=true to include anchors)
+  rateRide: (payload, debug = false) =>
+  post(`/rides/rate?debug=${debug}`, payload),
 };
 
 
@@ -27,4 +40,4 @@ export async function getForecast(cityId, dayOfWeek) {
   if (!res.ok) throw new Error("API error");
   return res.json();
 }
-
+;

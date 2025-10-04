@@ -4,11 +4,16 @@ import sqlite3
 from pathlib import Path
 from datetime import date
 from datetime import datetime
+from .routes.ride_rating import router as ride_rating_router
 
 # Resolve DB path relative to the repo root (parent of this 'backend' folder)
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = REPO_ROOT / "db" / "uber_hackathon_v2.db"
 app = FastAPI(title="Smart Earner API")
+
+# Mount the ride rating endpoint (POST /rides/rate)
+app.include_router(ride_rating_router)
+
 
 # Allow frontend dev server (Vite) to access the API in the browser
 app.add_middleware(
