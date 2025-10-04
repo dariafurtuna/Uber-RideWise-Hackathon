@@ -5,3 +5,5 @@ uvicorn
 sqlite-utils
 geopy
 certifi
+requests
+dotenv
