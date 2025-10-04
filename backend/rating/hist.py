@@ -62,3 +62,62 @@ def rating_anchors_for_city(city_id: int) -> dict:
         "p50": percentile(ratings, 50),
         "p75": percentile(ratings, 75),
     }
+
+def duration_anchors_for_city(city_id: int, sample_limit: int = 1000) -> dict:
+    """
+    Returns P25/P50/P75 of trip durations (minutes) for the given city.
+    If no data, return sensible defaults.
+    """
+    rows = _q(
+        """
+        SELECT duration_mins
+        FROM rides_trips
+        WHERE duration_mins IS NOT NULL
+          AND duration_mins > 0
+          AND city_id = ?
+        LIMIT ?
+        """,
+        (city_id, sample_limit),
+    )
+    vals = [float(r["duration_mins"]) for r in rows]
+    vals.sort()
+
+    if not vals:
+        # Defaults chosen for NL trip durations
+        return {"p25": 10.0, "p50": 20.0, "p75": 40.0}
+
+    return {
+        "p25": percentile(vals, 25),
+        "p50": percentile(vals, 50),
+        "p75": percentile(vals, 75),
+    }
+
+def profitability_anchors_for_city(city_id: int, sample_limit: int = 1000) -> dict:
+    """
+    Returns P25/P50/P75 of net earnings per minute (€/min) for the city.
+    """
+    rows = _q(
+        """
+        SELECT net_earnings, duration_mins
+        FROM rides_trips
+        WHERE net_earnings IS NOT NULL
+          AND duration_mins > 0
+          AND city_id = ?
+        LIMIT ?
+        """,
+        (city_id, sample_limit),
+    )
+    vals = [float(r["net_earnings"]) / float(r["duration_mins"]) for r in rows]
+    vals.sort()
+
+    if not vals:
+        # fallback defaults for NL market
+        return {"p25": 0.25, "p50": 0.35, "p75": 0.45}
+
+    return {
+        "p25": percentile(vals, 25),
+        "p50": percentile(vals, 50),
+        "p75": percentile(vals, 75),
+    }
+
+

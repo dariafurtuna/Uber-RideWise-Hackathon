@@ -42,3 +42,4 @@ def hour_from_iso(s: str) -> str:
             return datetime.strptime(s, "%Y-%m-%d %H:%M:%S").strftime("%H")
         except Exception:
             return datetime.utcnow().strftime("%H")
+

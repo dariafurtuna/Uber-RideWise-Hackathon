@@ -1,4 +1,3 @@
-# backend/rating/models.py
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 
@@ -12,7 +11,7 @@ WEIGHTS = {
 }
 
 class RideCandidate(BaseModel):
-    # NEW: rider identity + optional rating
+    # rider identity + optional rating
     rider_id: Optional[str] = None
     rider_rating: Optional[float] = Field(default=None, ge=1.0, le=5.0)
 
@@ -40,7 +39,9 @@ class RideCandidate(BaseModel):
     est_duration_mins: float = Field(..., ge=0)
 
 class RideRating(BaseModel):
-    overall: float
-    breakdown: Dict[str, float]
-    reasons: Dict[str, str]
-    anchors_used: Dict[str, Any]
+    overall: float                    # 0..100
+    breakdown: Dict[str, float]       # per factor 0..100
+    reasons: Dict[str, str]           # short messages per factor
+    label: str                        # "Excellent" | "Good" | "Fair" | "Poor"
+    decision: str                     # "Accept" | "Consider" | "Skip"
+    anchors_used: Dict[str, Any] = {} # included only when debug=true

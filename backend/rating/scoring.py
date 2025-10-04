@@ -57,3 +57,40 @@ def score_customer(rider_rating: Optional[float],
     score = max(0.0, min(100.0, score))
     reason = f"Rider {rider_rating:.2f}★ vs city P50 {p50:.2f}★"
     return score, reason
+
+def score_time(anchors: dict, est_duration_mins: float) -> Tuple[float, str]:
+    """
+    Compare estimated duration to historical anchors.
+    Shorter trips usually better.
+    """
+    p25 = anchors.get("p25") or 10.0
+    p75 = anchors.get("p75") or 40.0
+
+    # map est_duration between p25 and p75 → score between 90 and 50
+    score = 100 - linear_scale(est_duration_mins, p25, p75, 10, 90)
+    score = clamp(score, 0, 100)
+
+    reason = f"Est. {est_duration_mins:.0f} min vs P25 {p25:.0f} / P75 {p75:.0f}"
+    return score, reason
+
+def score_profitability(anchors: dict,
+                        est_distance_km: float,
+                        est_duration_mins: float) -> Tuple[float, str]:
+    """
+    Estimate €/min from trip estimates and compare against historical anchors.
+    """
+    if est_duration_mins <= 0:
+        return 50.0, "Invalid duration"
+
+    # simple estimate: assume fare ≈ €1.2/km (can refine later with surge/tips)
+    est_net = 1.2 * est_distance_km
+    npm = est_net / est_duration_mins
+
+    p25 = anchors.get("p25") or 0.25
+    p75 = anchors.get("p75") or 0.45
+
+    score = linear_scale(npm, p25, p75, 40, 90)
+    score = clamp(score, 0, 100)
+
+    reason = f"~€{est_net:.2f} est. (~€{npm:.2f}/min) vs P25 {p25:.2f} / P75 {p75:.2f}"
+    return score, reason
