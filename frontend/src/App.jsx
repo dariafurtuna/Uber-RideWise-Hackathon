@@ -3,11 +3,12 @@ import { api } from "./api";
 import "./app.css";
 
 import LandingPage from "./LandingPage";
+import DriveStats from "./DriveStats";
 
 function App() {
   return (
-    <div>
-      <LandingPage />
+    <div className="app">
+      <DriveStats />
     </div>
   );
 }
