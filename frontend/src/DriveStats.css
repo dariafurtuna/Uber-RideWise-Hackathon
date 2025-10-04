@@ -1,0 +1,204 @@
+:root {
+  --bg-dark: #0b0b0b;
+  --panel-dark: #161616;
+  --panel-light: #ffffff;
+  --text-dark: #111;
+  --text-light: #f7f7f7;
+  --muted: #6e6e6e;
+  --green: #06c167;
+  --blue: #276ef1;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg-dark);
+  font-family: "Uber Move", "Helvetica Neue", Arial, sans-serif;
+  color: var(--text-dark);
+  overflow-x: hidden;
+}
+
+/* ===== Topbar ===== */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #000;
+  color: var(--text-light);
+  padding: 0 2rem;
+  height: 60px;
+}
+
+.brand {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.nav-items {
+  display: flex;
+  gap: 1.8rem;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+/* ===== Full-width Dashboard ===== */
+.dashboard {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr;
+  gap: 1.8rem;
+  height: calc(100vh - 60px);
+  width: 100vw;
+  padding: 1.8rem 2.2rem;
+  background: var(--bg-dark);
+  align-items: start; /* ✅ ensures top alignment between map and cards */
+}
+
+/* ===== Map Panel ===== */
+.map-panel {
+  background: var(--panel-dark);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+  width: 100%;
+  height: 100%;
+  margin-top: 0; /* ✅ remove any offset */
+  align-self: start; /* ✅ forces alignment with the first card */
+}
+
+.map-inner {
+  text-align: center;
+}
+
+.map-inner h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.map-inner p {
+  color: #bcbcbc;
+  font-size: 0.95rem;
+}
+
+/* ===== Cards Section ===== */
+.cards-grid {
+  display: grid;
+  grid-template-rows: repeat(4, 1fr);
+  gap: 1.2rem;
+  height: 100%;
+  width: 100%;
+}
+
+.card {
+  background: var(--panel-light);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+
+.card h3 {
+  font-size: 1.1rem;
+  margin: 0 0 0.6rem;
+  color: var(--text-dark);
+}
+
+.value {
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  margin-bottom: 0.8rem;
+}
+
+.muted {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 0.8rem;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 0.6rem 1.4rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-green {
+  background: var(--green);
+  color: white;
+}
+
+.btn-green:hover {
+  background: #04a357;
+}
+
+.btn-blue {
+  background: var(--blue);
+  color: white;
+}
+
+.btn-blue:hover {
+  background: #1a50b3;
+}
+
+/* ===== Responsive Design ===== */
+@media (max-width: 1400px) {
+  .dashboard {
+    grid-template-columns: 1.7fr 1fr;
+    padding: 1.5rem 1.8rem;
+  }
+}
+
+@media (max-width: 1100px) {
+  .dashboard {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    padding: 1.5rem;
+  }
+
+  .cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: auto;
+  }
+
+  .map-panel {
+    height: 55vh;
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard {
+    padding: 1rem;
+  }
+
+  .cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .map-panel {
+    height: 50vh;
+  }
+}

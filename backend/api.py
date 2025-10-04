@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 from pathlib import Path
+from datetime import date
 from datetime import datetime
 
 # Resolve DB path relative to the repo root (parent of this 'backend' folder)
@@ -29,6 +30,16 @@ def q(sql, params=()):
     rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+@app.get("/earners/{earner_id}/today")
+def earner_today(earner_id: str):
+    today_str = date.today().isoformat()
+    result = q("""
+        SELECT COALESCE(SUM(total_net_earnings), 0) AS today_earnings
+        FROM earnings_daily
+        WHERE earner_id = ? AND date = ?;
+    """, (earner_id, today_str))
+    return result[0] if result else {"today_earnings": 0}
 
 @app.get("/earners/top")
 def top_earners(limit: int = 10):
@@ -58,6 +69,41 @@ def incentives(earner_id: str):
         WHERE earner_id = ?
         ORDER BY week DESC;
     """, (earner_id,))
+
+@app.get("/nudges/{earner_id}")
+def get_nudges(earner_id: str):
+    sessions = q(
+        """
+        SELECT start_time, end_time, duration
+        FROM driver_sessions
+        WHERE earner_id = ?
+        ORDER BY start_time DESC
+        LIMIT 1;
+        """,
+        (earner_id,)
+    )
+
+    if not sessions:
+        return {"message": "No session data available."}
+
+    session = sessions[0]
+    nudges = []
+
+    # Check for fatigue (e.g., driving for more than 2 hours continuously)
+    if session["duration"] and session["duration"] >= 120:
+        nudges.append(
+            "You’ve been driving for 2 hours. How about a 15-minute coffee break? Taking regular breaks keeps you alert and safe."
+        )
+
+    # Add time-of-day-based wellness tips
+    from datetime import datetime
+    current_hour = datetime.now().hour
+    if 12 <= current_hour <= 14:
+        nudges.append("It’s lunchtime! Don’t forget to grab a healthy meal.")
+    elif 20 <= current_hour <= 22:
+        nudges.append("It’s getting late. Consider wrapping up soon if you feel tired.")
+
+    return {"nudges": nudges}
 
 
 @app.get("/forecast/{city_id}/{dow}")
