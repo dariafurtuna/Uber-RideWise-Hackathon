@@ -12,3 +12,8 @@ SELECT
        ELSE 0 END AS eph
 FROM rides_trips
 GROUP BY city_id, dow, hour;
+
+CREATE TABLE cities (
+    city_id INTEGER PRIMARY KEY,
+    city_name TEXT
+);
