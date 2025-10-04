@@ -64,11 +64,8 @@ def incentives(earner_id: str):
 def forecast_today(city_id: int):
     dow = int(datetime.utcnow().strftime("%w"))
 
-    # Look up city name from earners table (or create a cities table if you have one)
-    city = q("SELECT DISTINCT home_city_id FROM earners WHERE home_city_id = ?", (city_id,))
-    city_name = f"City {city_id}"  # fallback
-    if city:
-        city_name = f"City {city_id}"  # replace with real name mapping if available
+    city = q("SELECT city_name FROM cities WHERE city_id = ?", (city_id,))
+    city_name = city[0]["city_name"] if city else f"City {city_id}"
 
     hourly = q("""
         SELECT hour, trips, eph
