@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getForecast } from "./api";
 
-
 const daysOfWeek = [
   "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
 ];
@@ -15,8 +14,6 @@ export default function LandingPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        // For demo, assume getForecast can take a day index (0=Sunday, 6=Saturday)
-        // If your backend expects a date string, adjust accordingly
         const data = await getForecast(1, selectedDay);
         setForecast(data.forecast || []);
       } catch (e) {
@@ -44,7 +41,7 @@ export default function LandingPage() {
           alignItems: "center",
           justifyContent: "center",
           width: "100%",
-          maxWidth: 700,
+          maxWidth: 900,
           padding: 24,
           boxSizing: "border-box",
         }}
@@ -68,39 +65,48 @@ export default function LandingPage() {
             &#8594;
           </button>
         </div>
-        {/* Chart with fixed height and relative scaling */}
+        {/* Chart with fixed height, relative scaling, and horizontal scroll */}
         <div
           style={{
-            display: "flex",
-            gap: "4px",
-            alignItems: "end",
-            justifyContent: "center",
-            height: 200,
             width: "100%",
-            maxWidth: 600,
+            maxWidth: 900,
+            overflowX: "auto",
             margin: "0 auto",
             background: "rgba(255,255,255,0.02)",
-            borderRadius: 8
+            borderRadius: 8,
+            paddingBottom: 8,
           }}
         >
-          {(() => {
-            const maxEph = Math.max(...forecast.map(f => f.eph || 0), 1);
-            return forecast.map(f => (
-              <div key={f.hour} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div
-                  style={{
-                    height: `${(f.eph / maxEph) * 180 || 2}px`, // 180px max bar height, min 2px
-                    width: 24,
-                    background: "teal",
-                    borderRadius: 4,
-                    marginBottom: 4,
-                    transition: 'height 0.3s',
-                  }}
-                />
-                <small>{f.hour}:00</small>
-              </div>
-            ));
-          })()}
+          <div
+            style={{
+              display: "flex",
+              gap: "4px",
+              alignItems: "end",
+              height: 200,
+              minWidth: 1100,
+              width: forecast.length * 36,
+              transition: 'width 0.3s',
+            }}
+          >
+            {(() => {
+              const maxEph = Math.max(...forecast.map(f => f.eph || 0), 1);
+              return forecast.map(f => (
+                <div key={f.hour} style={{ flex: '0 0 32px', display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div
+                    style={{
+                      height: `${(f.eph / maxEph) * 180 || 2}px`, // 180px max bar height, min 2px
+                      width: 30,
+                      background: "teal",
+                      borderRadius: 4,
+                      marginBottom: 4,
+                      transition: 'height 0.3s',
+                    }}
+                  />
+                  <small>{f.hour}:00</small>
+                </div>
+              ));
+            })()}
+          </div>
         </div>
         <button
           onClick={() => navigate("/dashboard")}
