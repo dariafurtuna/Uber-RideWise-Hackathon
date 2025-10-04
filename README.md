@@ -12,4 +12,4 @@ python scripts/load_from_excel.py
 sqlite3 db/uber_hackathon_v2.db
 
 ### Start server
-uvicorn api:app --reload --port 8000
+python -m uvicorn backend.api:app --reload --port 8000

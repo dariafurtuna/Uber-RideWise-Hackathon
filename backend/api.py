@@ -1,11 +1,29 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
+from pathlib import Path
 
-DB_PATH = "db/uber_hackathon_v2.db"
+# Resolve DB path relative to the repo root (parent of this 'backend' folder)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DB_PATH = REPO_ROOT / "db" / "uber_hackathon_v2.db"
 app = FastAPI(title="Smart Earner API")
 
+# Allow frontend dev server (Vite) to access the API in the browser
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",  # vite preview
+        "http://127.0.0.1:4173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 def q(sql, params=()):
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     rows = conn.execute(sql, params).fetchall()
     conn.close()
