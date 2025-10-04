@@ -15,16 +15,17 @@ const daysOfWeek = [
 export default function LandingPage() {
   const [forecast, setForecast] = useState([]);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
+  const [surge, setSurge] = useState(null);
   const navigate = useNavigate();
-  // Demo values for weather and surge
+  // Demo values for weather
   const weather = { icon: "🌥️", label: "Cloudy", desc: "Medium traffic expected" };
-  const surge = 2.3;
 
   useEffect(() => {
     async function loadData() {
       try {
         const data = await getForecast(1, selectedDay);
         setForecast(data.forecast || []);
+        setSurge(data.current_surge ?? null);
       } catch (e) {
         console.error("Failed to fetch forecast", e);
       }
@@ -61,10 +62,10 @@ export default function LandingPage() {
           <div className="lp-weather-desc">{weather.desc}</div>
         </div>
         <div className="lp-card lp-surge">
-          <div className="lp-surge-label">City Surge Level</div>
-          <div className="lp-surge-value">{surge}x</div>
+          <div className="lp-surge-label">City Surge Level right now</div>
+          <div className="lp-surge-value">{surge !== null ? `${Number(surge).toFixed(2)}x` : '--'}</div>
           <div className="lp-surge-bar-bg">
-            <div className="lp-surge-bar-fg" style={{ width: `${Math.min(surge / 3, 1) * 100}%` }} />
+            <div className="lp-surge-bar-fg" style={{ width: `${surge ? Math.min(Number(surge) / 3, 1) * 100 : 0}%` }} />
           </div>
         </div>
       </div>
