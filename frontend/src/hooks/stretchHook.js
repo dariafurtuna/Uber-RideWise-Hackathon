@@ -1,19 +1,18 @@
 import { useEffect, useState } from "react";
 
-export function useWaterHook(intervalMs = 2 * 60 * 60 * 1000) {
+export function useStretchHook(intervalMs = 2 * 60 * 60 * 1000) {
   const [visible, setVisible] = useState(false);
-
-  // Retrieve last dismissal time from localStorage
-  const getLastDismissed = () => {
-    const storedTime = localStorage.getItem("waterLastDismissed");
-    return storedTime ? parseInt(storedTime, 10) : null;
-  };
-
-  const [lastDismissed, setLastDismissed] = useState(getLastDismissed);
+  const [lastDismissed, setLastDismissed] = useState(null);
 
   useEffect(() => {
+    // Retrieve last dismissal time from localStorage on mount
+    const storedTime = localStorage.getItem("stretchLastDismissed");
+    if (storedTime) {
+      setLastDismissed(parseInt(storedTime, 10));
+    }
+
     // Show the popup on first load if it hasn't been dismissed recently
-    if (!lastDismissed || Date.now() - lastDismissed >= intervalMs) {
+    if (!storedTime || Date.now() - parseInt(storedTime, 10) >= intervalMs) {
       setVisible(true);
     }
 
@@ -30,7 +29,7 @@ export function useWaterHook(intervalMs = 2 * 60 * 60 * 1000) {
     setVisible(false);
     const currentTime = Date.now();
     setLastDismissed(currentTime);
-    localStorage.setItem("waterLastDismissed", currentTime.toString()); // Persist dismissal time
+    localStorage.setItem("stretchLastDismissed", currentTime.toString()); // Persist dismissal time
   };
 
   return { visible, markAsDone };
