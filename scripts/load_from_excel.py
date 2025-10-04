@@ -18,6 +18,8 @@ def isoify_times(df):
     return df
 
 def main():
+    # Ensure DB directory exists before connecting
+    DB.parent.mkdir(parents=True, exist_ok=True)
     if DB.exists():
         DB.unlink()
     conn = sqlite3.connect(DB)
