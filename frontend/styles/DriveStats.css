@@ -84,19 +84,19 @@
 
 .card h3 {
   font-size: 1.1rem;
-  color: var(--text-dark);
+  color: #ffffff; /* Ensuring text inside cards is pure white */
   margin-bottom: 0.5rem;
 }
 
 .value {
   font-size: 1.3rem;
-  color: var(--text-dark);
+  color: #ffffff; /* Ensuring text inside cards is pure white */
   margin-bottom: 0.8rem;
 }
 
 .muted {
   font-size: 0.9rem;
-  color: var(--muted);
+  color: #ffffff; /* Ensuring text inside cards is pure white */
   margin-bottom: 0.8rem;
 }
 
