@@ -12,12 +12,14 @@ export default function LandingPage() {
   const [forecast, setForecast] = useState([]);
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const navigate = useNavigate();
+  const [city, setCity] = useState("");
 
   useEffect(() => {
     async function loadData() {
       try {
         const data = await getForecast(1, selectedDay);
         setForecast(data.forecast || []);
+        setCity(data.city_name || "");
       } catch (e) {
         console.error("Failed to fetch forecast", e);
       }
@@ -38,7 +40,7 @@ export default function LandingPage() {
             &#8592;
           </button>
           <h1 className="landingpage-title">
-            {daysOfWeek[selectedDay]}'s Activity Forecast
+            {daysOfWeek[selectedDay]}'s Activity Forecast for {city}
           </h1>
           <button
             aria-label="Next day"
