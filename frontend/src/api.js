@@ -1,4 +1,4 @@
-// src/api.js
+// src/api.js 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 async function get(path) {
@@ -9,6 +9,29 @@ async function get(path) {
 
 export const api = {
   topEarners: (limit = 10) => get(`/earners/top?limit=${limit}`),
-  earnerDaily: (earnerId, limit = 14) => get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
-  incentives: (earnerId) => get(`/incentives/${encodeURIComponent(earnerId)}`),
+  earnerDaily: (earnerId, limit = 14) =>
+    get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
+  incentives: (earnerId) =>
+    get(`/incentives/${encodeURIComponent(earnerId)}`),
+
+  // 🔥 new: fetch predicted heatmap points
+  heatmapPredict: async ({
+    lat,
+    lng,
+    radiusKm = 3,
+    whenISO,
+    weight = "count",
+  }) => {
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lng: String(lng),
+      radius_km: String(radiusKm),
+      weight,
+      when: whenISO,
+    });
+    return get(`/heatmap/predict?${params.toString()}`);
+  },
 };
+
+// Named export for HeatmapView.jsx compatibility
+export const fetchPredictedHeat = api.heatmapPredict;
