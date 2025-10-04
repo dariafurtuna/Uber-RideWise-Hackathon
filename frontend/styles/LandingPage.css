@@ -1,87 +1,168 @@
-.landingpage-root {
-  min-height: 100vh;
-  width: 100vw;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: inherit;
+/* Day label above cards */
+.lp-day-label {
+  color: #181818;
 }
 
-.landingpage-container {
+/* Root and layout */
+.lp-root {
+  min-height: 100vh;
+  width: 100vw;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 24px 0 0 0;
+}
+.lp-row {
+  display: flex;
+  gap: 32px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+/* Card styles */
+.lp-card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 10px 10px;
+  min-width: 120px;
+  min-height: 60px;
+  max-width: 500px;
+  min-height: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  font-family: inherit;
+  color: #181818;
+}
+.lp-weather {
+  flex: 1;
+  margin-right: 8px;
+}
+.lp-surge {
+  flex: 1;
+  margin-left: 8px;
+}
+.lp-weather-icon {
+  font-size: 2.2rem;
+  margin-bottom: 8px;
+}
+.lp-weather-title {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #181818;
+}
+.lp-weather-desc {
+  color: #888;
+  font-size: 1.1rem;
+}
+.lp-surge-label {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-bottom: 8px;
+  align-self: flex-start;
+  color: #181818;
+}
+.lp-surge-value {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #181818;
+}
+.lp-surge-bar-bg {
   width: 100%;
-  max-width: 900px;
-  padding: 24px;
-  box-sizing: border-box;
-}
-
-.landingpage-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 32px;
-}
-
-.landingpage-arrow-btn {
-  font-size: 28px;
-  background: none;
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  margin: 0 16px;
-}
-
-.landingpage-title {
-  text-align: center;
-  margin: 0;
-  min-width: 180px;
-}
-
-.landingpage-chart-scroll {
-  width: 100%;
-  max-width: 900px;
-  overflow-x: auto;
-  margin: 0 auto;
-  background: rgba(255,255,255,0.02);
+  height: 12px;
+  background: #f2f2f2;
   border-radius: 8px;
-  padding-bottom: 8px;
+  overflow: hidden;
 }
-
-.landingpage-chart {
-  display: flex;
-  gap: 4px;
-  align-items: end;
-  height: 200px;
-  min-width: 1100px;
+.lp-surge-bar-fg {
+  height: 100%;
+  background: #181818;
+  border-radius: 8px 0 0 8px;
   transition: width 0.3s;
 }
 
-.landingpage-bar-col {
-  flex: 0 0 32px;
+/* Forecast card */
+.lp-forecast {
+  margin: 0 auto 24px auto;
+  width: 100%;
+  max-width: 900px;
+  align-items: flex-start;
+  padding: 32px 36px 24px 36px;
+}
+.lp-forecast-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #181818;
+}
+.lp-forecast-chart-wrap {
+  display: flex;
+  width: 100%;
+  align-items: flex-end;
+}
+.lp-forecast-yaxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 180px;
+  margin-right: 16px;
+  color: #888;
+  font-size: 1rem;
+  font-weight: 500;
+  min-width: 32px;
+  align-items: flex-end;
+}
+.lp-forecast-chart {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  height: 180px;
+  flex: 1;
+  min-width: 0;
+}
+.lp-bar-col {
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex: 1;
 }
-
-.landingpage-bar {
-  width: 30px;
-  background: white;
-  border-radius: 4px;
-  margin-bottom: 4px;
+.lp-bar {
+  width: 32px;
+  background: #111;
+  border-radius: 6px 6px 0 0;
+  margin-bottom: 8px;
   transition: height 0.3s;
 }
+.lp-bar-label {
+  font-size: 1rem;
+  color: #444;
+  margin-top: 4px;
+}
 
-.landingpage-btn {
-  margin-top: 48px;
-  padding: 12px 32px;
-  font-size: 18px;
-  background: #007bff;
-  color: white;
+/* Start Work button */
+.lp-btn {
+  width: 98vw;
+  max-width: 1100px;
+  margin: 0 auto 16px auto;
+  display: block;
+  padding: 18px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  background: #181818;
+  color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  letter-spacing: 0.01em;
+  transition: background 0.2s;
+}
+.lp-btn:hover {
+  background: #222;
 }
