@@ -31,7 +31,6 @@ export const api = {
     get(`/earners/${encodeURIComponent(earnerId)}/today`),
   earnerTodayTime: (earnerId) =>
     get(`/earners/${encodeURIComponent(earnerId)}/today_time`),
-  getNudges,
 };
 
 

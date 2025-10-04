@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ import navigation
 import { api } from "./api";
 import "/styles/DriveStats.css";
 
 export default function DriveStats() {
+  const navigate = useNavigate(); // ✅ navigation hook
   const earnerId = "E10000";
   const [todayEarnings, setTodayEarnings] = useState(null);
-  const [todayTime, setTodayTime] = useState(null); // ⏱️ new state
+  const [todayTime, setTodayTime] = useState(null);
 
   useEffect(() => {
     api.earnerToday(earnerId)
@@ -80,7 +82,12 @@ export default function DriveStats() {
           <div className="card">
             <h3>Recommendations</h3>
             <p className="muted">Smart suggestions for your next trip</p>
-            <button className="btn btn-blue">Get Recommendations</button>
+            <button
+              className="btn btn-blue"
+              onClick={() => navigate("/wellness")} // ✅ redirect
+            >
+              Get Recommendations
+            </button>
           </div>
         </aside>
       </main>
