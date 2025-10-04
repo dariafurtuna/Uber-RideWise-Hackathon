@@ -8,8 +8,8 @@ export default function LandingPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await getForecast(3); // city_id=3
-        setForecast(data.forecast || []);
+        const data = await getForecast(1); // city_id=1
+        setForecast(data.forecast || []);   
         setCityName(data.city_name || `City ${data.city_name}`);
       } catch (e) {
         console.error("Failed to fetch forecast", e);
