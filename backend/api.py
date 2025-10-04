@@ -60,10 +60,8 @@ def incentives(earner_id: str):
     """, (earner_id,))
 
 
-@app.get("/forecast/{city_id}/today")
-def forecast_today(city_id: int):
-    dow = int(datetime.utcnow().strftime("%w"))
-
+@app.get("/forecast/{city_id}/{dow}")
+def forecast_for_day(city_id: int, dow: int):
     city = q("SELECT city_name FROM cities WHERE city_id = ?", (city_id,))
     city_name = city[0]["city_name"] if city else f"City {city_id}"
 

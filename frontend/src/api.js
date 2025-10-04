@@ -13,8 +13,11 @@ export const api = {
   incentives: (earnerId) => get(`/incentives/${encodeURIComponent(earnerId)}`),
 };
 
-export async function getForecast(cityId) {
-  const res = await fetch(`http://127.0.0.1:8000/forecast/${cityId}/today`);
+
+// dayOfWeek: 0=Sunday, 6=Saturday
+export async function getForecast(cityId, dayOfWeek) {
+  const dow = typeof dayOfWeek === 'number' ? dayOfWeek : (new Date().getDay());
+  const res = await fetch(`http://127.0.0.1:8000/forecast/${cityId}/${dow}`);
   if (!res.ok) throw new Error("API error");
   return res.json();
 }
