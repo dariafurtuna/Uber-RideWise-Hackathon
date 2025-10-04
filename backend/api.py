@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
 from pathlib import Path
+from datetime import date
 
 # Resolve DB path relative to the repo root (parent of this 'backend' folder)
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +29,16 @@ def q(sql, params=()):
     rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+@app.get("/earners/{earner_id}/today")
+def earner_today(earner_id: str):
+    today_str = date.today().isoformat()
+    result = q("""
+        SELECT COALESCE(SUM(total_net_earnings), 0) AS today_earnings
+        FROM earnings_daily
+        WHERE earner_id = ? AND date = ?;
+    """, (earner_id, today_str))
+    return result[0] if result else {"today_earnings": 0}
 
 @app.get("/earners/top")
 def top_earners(limit: int = 10):

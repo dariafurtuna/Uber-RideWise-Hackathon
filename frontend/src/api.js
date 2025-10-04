@@ -16,4 +16,5 @@ export const api = {
   earnerDaily: (earnerId, limit = 14) => get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
   incentives: (earnerId) => get(`/incentives/${encodeURIComponent(earnerId)}`),
   getNudges,
+  earnerToday: (earnerId) => get(`/earners/${encodeURIComponent(earnerId)}/today`), // ✅ new
 };

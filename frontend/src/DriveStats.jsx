@@ -1,9 +1,22 @@
+import { useEffect, useState } from "react";
+import { api } from "./api";
 import "./DriveStats.css";
 
 export default function DriveStats() {
+  const earnerId = "E10000"; // Example ID — in production you’d detect this dynamically
+  const [todayEarnings, setTodayEarnings] = useState(null);
+
+  useEffect(() => {
+    api.earnerToday(earnerId)
+      .then((data) => setTodayEarnings(data.today_earnings))
+      .catch((err) => console.error("Failed to load today's earnings", err));
+  }, [earnerId]);
+
+  const formatEuro = (v) =>
+    v == null ? "—" : Number(v).toLocaleString(undefined, { style: "currency", currency: "EUR" });
+
   return (
     <div className="uber-shell">
-      {/* Topbar */}
       <nav className="topbar">
         <div className="brand">Uber</div>
         <div className="spacer" />
@@ -14,7 +27,6 @@ export default function DriveStats() {
         </div>
       </nav>
 
-      {/* Main Layout */}
       <main className="dashboard">
         <section className="map-panel">
           <div className="map-inner">
@@ -32,7 +44,9 @@ export default function DriveStats() {
 
           <div className="card">
             <h3>Income Today</h3>
-            <p className="value">€156</p>
+            <p className="value">
+              {todayEarnings === null ? "Loading…" : formatEuro(todayEarnings)}
+            </p>
           </div>
 
           <div className="card">
