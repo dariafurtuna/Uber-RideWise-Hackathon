@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
-import "./DriveStats.css";
+import "/styles/DriveStats.css";
 
 export default function DriveStats() {
   const earnerId = "E10000"; // Example ID — in production you’d detect this dynamically

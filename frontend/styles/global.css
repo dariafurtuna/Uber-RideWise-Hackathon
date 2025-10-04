@@ -1,0 +1,104 @@
+/* === UBER GLOBAL THEME === */
+:root {
+  --bg-dark: #0b0b0b;
+  --bg-mid: #151515;
+  --bg-light: #ffffff;
+  --text-dark: #111;
+  --text-light: #f7f7f7;
+  --muted: #9ba1a6;
+  --border: #262626;
+  --green: #06c167;
+  --blue: #276ef1;
+  --shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --radius: 18px;
+}
+
+/* === Global Reset === */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  font-family: "Uber Move", "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  overflow-x: hidden;
+}
+
+/* === Global Layout Utilities === */
+.page {
+  width: 100%;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* === Text === */
+h1, h2, h3 {
+  font-weight: 700;
+  color: var(--text-light);
+}
+
+p {
+  color: var(--muted);
+}
+
+/* === Links === */
+a {
+  color: var(--blue);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* === Buttons === */
+button {
+  font-family: inherit;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 10px 20px;
+  font-size: 1rem;
+}
+
+.btn-green {
+  background: var(--green);
+  color: #fff;
+}
+.btn-green:hover {
+  background: #04a357;
+}
+
+.btn-blue {
+  background: var(--blue);
+  color: #fff;
+}
+.btn-blue:hover {
+  background: #1a50b3;
+}
+
+/* === Scrollbar === */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}

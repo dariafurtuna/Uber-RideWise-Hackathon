@@ -2,6 +2,7 @@ import { HashRouter, Routes, Route } from "react-router-dom";
 import LandingPage from "./LandingPage";
 import Dashboard from "./Dashboard";
 import DriveStats from "./DriveStats";
+import "/styles/App.css";
 
 function App() {
   return (
