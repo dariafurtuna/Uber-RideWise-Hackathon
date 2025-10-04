@@ -225,3 +225,13 @@ class WellnessMetric(Base):
     stress_level = Column(Integer, nullable=True)
 
     earner = relationship("Earner", back_populates="wellness_metrics")
+
+
+class DriverSession(Base):
+    __tablename__ = "driver_sessions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    earner_id = Column(String, ForeignKey("earners.earner_id"))
+    start_time = Column(String, nullable=False)
+    end_time = Column(String, nullable=True)
+    duration = Column(Integer, nullable=True)

@@ -38,11 +38,26 @@ function Table({ columns, rows, keyField }) {
   );
 }
 
+function NudgePopup({ nudges, onClose }) {
+  if (!nudges || nudges.length === 0) return null;
+  return (
+    <div className="nudge-popup">
+      <div className="nudge-content">
+        {nudges.map((nudge, index) => (
+          <p key={index}>{nudge}</p>
+        ))}
+        <button onClick={onClose}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [top, setTop] = useState({ loading: true, error: null, rows: [] });
   const [selected, setSelected] = useState(null); // earner_id
   const [daily, setDaily] = useState({ loading: false, error: null, rows: [] });
   const [inc, setInc] = useState({ loading: false, error: null, rows: [] });
+  const [nudges, setNudges] = useState([]);
 
   // load top earners on mount
   useEffect(() => {
@@ -69,6 +84,14 @@ export default function App() {
       .catch((e) => isMounted && setInc({ loading: false, error: e, rows: [] }));
 
     return () => (isMounted = false);
+  }, [selected]);
+
+  // fetch nudges for the selected earner
+  useEffect(() => {
+    if (!selected) return;
+    api.getNudges(selected)
+      .then((data) => setNudges(data.nudges || []))
+      .catch((e) => console.error("Failed to fetch nudges:", e));
   }, [selected]);
 
   const topCols = useMemo(
@@ -137,6 +160,8 @@ export default function App() {
               <Table keyField="week" columns={incCols} rows={inc.rows} />
             )}
           </section>
+
+          <NudgePopup nudges={nudges} onClose={() => setNudges([])} />
         </>
       )}
     </div>

@@ -57,3 +57,38 @@ def incentives(earner_id: str):
         WHERE earner_id = ?
         ORDER BY week DESC;
     """, (earner_id,))
+
+@app.get("/nudges/{earner_id}")
+def get_nudges(earner_id: str):
+    sessions = q(
+        """
+        SELECT start_time, end_time, duration
+        FROM driver_sessions
+        WHERE earner_id = ?
+        ORDER BY start_time DESC
+        LIMIT 1;
+        """,
+        (earner_id,)
+    )
+
+    if not sessions:
+        return {"message": "No session data available."}
+
+    session = sessions[0]
+    nudges = []
+
+    # Check for fatigue (e.g., driving for more than 2 hours continuously)
+    if session["duration"] and session["duration"] >= 120:
+        nudges.append(
+            "You’ve been driving for 2 hours. How about a 15-minute coffee break? Taking regular breaks keeps you alert and safe."
+        )
+
+    # Add time-of-day-based wellness tips
+    from datetime import datetime
+    current_hour = datetime.now().hour
+    if 12 <= current_hour <= 14:
+        nudges.append("It’s lunchtime! Don’t forget to grab a healthy meal.")
+    elif 20 <= current_hour <= 22:
+        nudges.append("It’s getting late. Consider wrapping up soon if you feel tired.")
+
+    return {"nudges": nudges}
