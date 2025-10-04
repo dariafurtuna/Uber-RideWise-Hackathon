@@ -3,7 +3,7 @@ __pycache__
 *.db
 *.sqlite
 *.xlsx
-
+*.csv
 .env
 *.xlsx
 
