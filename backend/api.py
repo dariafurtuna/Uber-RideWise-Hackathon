@@ -9,6 +9,8 @@ import h3
 import math
 from datetime import date, datetime
 from .routes.ride_rating import router as ride_rating_router
+from .routes.flow import router as flow_router
+
 
 # Resolve DB path relative to the repo root (parent of this 'backend' folder)
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +19,8 @@ app = FastAPI(title="Smart Earner API")
 
 # Mount the ride rating endpoint (POST /rides/rate)
 app.include_router(ride_rating_router)
+
+app.include_router(flow_router)
 
 
 # Allow frontend dev server (Vite) to access the API in the browser
