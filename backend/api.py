@@ -62,7 +62,13 @@ def incentives(earner_id: str):
 
 @app.get("/forecast/{city_id}/today")
 def forecast_today(city_id: int):
-    dow = int(datetime.utcnow().strftime("%w"))  # 0=Sun..6=Sat
+    dow = int(datetime.utcnow().strftime("%w"))
+
+    # Look up city name from earners table (or create a cities table if you have one)
+    city = q("SELECT DISTINCT home_city_id FROM earners WHERE home_city_id = ?", (city_id,))
+    city_name = f"City {city_id}"  # fallback
+    if city:
+        city_name = f"City {city_id}"  # replace with real name mapping if available
 
     hourly = q("""
         SELECT hour, trips, eph
@@ -71,7 +77,6 @@ def forecast_today(city_id: int):
         ORDER BY hour
     """, (city_id, dow))
 
-    # fallback if no rides history
     if not hourly:
         surge = q("""
             SELECT hour, surge_multiplier
@@ -86,6 +91,7 @@ def forecast_today(city_id: int):
 
     return {
         "city_id": city_id,
+        "city_name": city_name,
         "dow": dow,
-        "forecast": hourly  # 24-hour array: hour, trips, eph
+        "forecast": hourly
     }

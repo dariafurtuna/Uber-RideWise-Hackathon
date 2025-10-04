@@ -12,3 +12,10 @@ export const api = {
   earnerDaily: (earnerId, limit = 14) => get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
   incentives: (earnerId) => get(`/incentives/${encodeURIComponent(earnerId)}`),
 };
+
+export async function getForecast(cityId) {
+  const res = await fetch(`http://127.0.0.1:8000/forecast/${cityId}/today`);
+  if (!res.ok) throw new Error("API error");
+  return res.json();
+}
+
