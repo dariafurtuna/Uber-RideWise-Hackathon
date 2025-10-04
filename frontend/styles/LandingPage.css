@@ -1,0 +1,87 @@
+.landingpage-root {
+  min-height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: inherit;
+}
+
+.landingpage-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 900px;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.landingpage-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.landingpage-arrow-btn {
+  font-size: 28px;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  margin: 0 16px;
+}
+
+.landingpage-title {
+  text-align: center;
+  margin: 0;
+  min-width: 180px;
+}
+
+.landingpage-chart-scroll {
+  width: 100%;
+  max-width: 900px;
+  overflow-x: auto;
+  margin: 0 auto;
+  background: rgba(255,255,255,0.02);
+  border-radius: 8px;
+  padding-bottom: 8px;
+}
+
+.landingpage-chart {
+  display: flex;
+  gap: 4px;
+  align-items: end;
+  height: 200px;
+  min-width: 1100px;
+  transition: width 0.3s;
+}
+
+.landingpage-bar-col {
+  flex: 0 0 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.landingpage-bar {
+  width: 30px;
+  background: white;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  transition: height 0.3s;
+}
+
+.landingpage-btn {
+  margin-top: 48px;
+  padding: 12px 32px;
+  font-size: 18px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}

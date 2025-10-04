@@ -7,8 +7,24 @@ async function get(path) {
   return res.json();
 }
 
+async function getNudges(earnerId) {
+  return get(`/nudges/${encodeURIComponent(earnerId)}`);
+}
+
 export const api = {
   topEarners: (limit = 10) => get(`/earners/top?limit=${limit}`),
   earnerDaily: (earnerId, limit = 14) => get(`/earners/${encodeURIComponent(earnerId)}/daily?limit=${limit}`),
   incentives: (earnerId) => get(`/incentives/${encodeURIComponent(earnerId)}`),
+  getNudges,
+  earnerToday: (earnerId) => get(`/earners/${encodeURIComponent(earnerId)}/today`), // ✅ new
 };
+
+
+// dayOfWeek: 0=Sunday, 6=Saturday
+export async function getForecast(cityId, dayOfWeek) {
+  const dow = typeof dayOfWeek === 'number' ? dayOfWeek : (new Date().getDay());
+  const res = await fetch(`http://127.0.0.1:8000/forecast/${cityId}/${dow}`);
+  if (!res.ok) throw new Error("API error");
+  return res.json();
+}
+
