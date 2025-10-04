@@ -1,4 +1,4 @@
-// src/api.js
+// src/api.js 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 async function get(path) {
@@ -30,6 +30,22 @@ export const api = {
   // NEW: rate a ride (set debug=true to include anchors)
   rateRide: (payload, debug = false) =>
   post(`/rides/rate?debug=${debug}`, payload),
+  heatmapPredict: async ({
+    lat,
+    lng,
+    radiusKm = 3,
+    whenISO,
+    weight = "count",
+  }) => {
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lng: String(lng),
+      radius_km: String(radiusKm),
+      weight,
+      when: whenISO,
+    });
+    return get(`/heatmap/predict?${params.toString()}`);
+  },
 };
 
 
@@ -39,5 +55,7 @@ export async function getForecast(cityId, dayOfWeek) {
   const res = await fetch(`http://127.0.0.1:8000/forecast/${cityId}/${dow}`);
   if (!res.ok) throw new Error("API error");
   return res.json();
-}
-;
+};
+
+// Named export for HeatmapView.jsx compatibility
+export const fetchPredictedHeat = api.heatmapPredict;

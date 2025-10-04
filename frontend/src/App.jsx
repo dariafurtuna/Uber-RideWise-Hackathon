@@ -3,6 +3,7 @@ import LandingPage from "./LandingPage";
 import Dashboard from "./Dashboard";
 import DriveStats from "./DriveStats";
 import RideRating from "./RideRating";
+import HeatmapView from "./HeatmapView";
 
 import "/styles/App.css";
 
@@ -14,6 +15,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/drive-stats" element={<DriveStats />} />
         <Route path="/ride-rating" element={<RideRating />} />
+        <Route path="/heatmap" element={<HeatmapView />} />
       </Routes>
     </HashRouter>
   );
