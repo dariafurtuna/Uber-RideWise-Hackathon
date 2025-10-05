@@ -102,38 +102,3 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: #666;
 }
-
-/* === Leaflet pin icon overrides === */
-/* Remove default white background/border on Leaflet div icons we use as pins */
-.leaflet-div-icon.pin-icon {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-/* Make sure the container can position pseudo-elements */
-.pin-icon { position: relative; }
-
-/* Enhance visibility with a gentle glow and pulse at the tip */
-.pin-icon svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)) drop-shadow(0 0 6px rgba(45,108,255,.45)); }
-
-.pin-icon::after {
-  content: "";
-  position: absolute;
-  left: 15px;  /* match iconAnchor x */
-  top: 46px;   /* match iconAnchor y (the tip) */
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(45,108,255,0.55) 0%, rgba(45,108,255,0.0) 70%);
-  transform: translate(-50%, -50%) scale(0.2);
-  opacity: 0.85;
-  animation: pin-pulse 2s ease-out infinite;
-  pointer-events: none;
-}
-
-@keyframes pin-pulse {
-  0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0.85; }
-  70%  { transform: translate(-50%, -50%) scale(2.4); opacity: 0; }
-  100% { opacity: 0; }
-}

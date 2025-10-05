@@ -4,17 +4,6 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { heatmapPredict } from "./api";
 
-// Ensure the default Leaflet marker icons load under Vite
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-});
-
 // ---------- time helpers ----------
 function toISOWithTZ(d) {
   const tzMin = -d.getTimezoneOffset();
@@ -26,11 +15,21 @@ function toISOWithTZ(d) {
     .toISOString()
     .replace("Z", `${sign}${hh}:${mm}`);
 }
-function roundToHalfHour(d) { const x = new Date(d); const m = x.getMinutes(); x.setMinutes(m < 30 ? 0 : 30, 0, 0); return x; }
-function addMinutes(d, m) { const x = new Date(d); x.setMinutes(x.getMinutes() + m); return x; }
-function formatSlotLabel(d) { return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+const roundToHalfHour = (d) => {
+  const x = new Date(d);
+  const m = x.getMinutes();
+  x.setMinutes(m < 30 ? 0 : 30, 0, 0);
+  return x;
+};
+const addMinutes = (d, m) => {
+  const x = new Date(d);
+  x.setMinutes(x.getMinutes() + m);
+  return x;
+};
+const formatSlotLabel = (d) =>
+  d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-// --- quantized palette for clearer zones ---
+// --- palette (Uber-ish) ---
 function colorFor(v /* 0..1 */) {
   const colors = ["#7ED957", "#F7E463", "#F9B44C", "#F47C3C", "#E53935"];
   const i = Math.max(0, Math.min(4, Math.floor(v * 5)));
@@ -38,17 +37,17 @@ function colorFor(v /* 0..1 */) {
 }
 
 // === Inline SVG pin (no external image) ===
-function makePinIcon(color = "#2d6cff") {
+function makePinIcon(color = "#E53935") {
   const html = `
-<svg width="30" height="46" viewBox="0 0 30 46" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 1px 1px rgba(0,0,0,.5));">
-  <path d="M15 46s12-14.1 12-25A12 12 0 0 0 15 9 12 12 0 0 0 3 21c0 10.9 12 25 12 25z" fill="${color}" stroke="#0b3ab8" stroke-width="1.2"/>
+<svg width="30" height="46" viewBox="0 0 30 46" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 1px 1px rgba(0,0,0,.45));">
+  <path d="M15 46s12-14.1 12-25A12 12 0 0 0 15 9 12 12 0 0 0 3 21c0 10.9 12 25 12 25z" fill="${color}" stroke="#b21f1f" stroke-width="1.1"/>
   <circle cx="15" cy="21" r="5.5" fill="#fff"/>
 </svg>`;
   return L.divIcon({
-    className: "leaflet-div-icon pin-icon",  // keep leaflet's base class
+    className: "pin-icon-no-bg", // no white box
     html,
     iconSize: [30, 46],
-    iconAnchor: [15, 46],                     // pointy tip
+    iconAnchor: [15, 46], // tip of pin
     popupAnchor: [0, -46],
   });
 }
@@ -59,9 +58,10 @@ export default function HeatmapTimeline({
   defaultRadiusKm = 3,
   stepMinutes = 30,
   windowHours = 4,
-  autoAdvanceMs = 5000,           // 5s
+  autoAdvanceMs = 2000, // 5s
   defaultWeight = "count",
 }) {
+  // -------- state --------
   const [lat, setLat] = useState(defaultLat);
   const [lng, setLng] = useState(defaultLng);
   const [radiusKm, setRadiusKm] = useState(defaultRadiusKm);
@@ -81,11 +81,9 @@ export default function HeatmapTimeline({
   const cacheRef = useRef(new Map());
   const mapRef = useRef(null);
   const markerRef = useRef(null);
-  const dotRef = useRef(null);
-  const circleRef = useRef(null);
   const layerRef = useRef(null);
 
-  // ----------- init map -----------
+  // -------- map init --------
   useEffect(() => {
     const map = L.map("timeline-map", {
       center: [lat, lng],
@@ -99,52 +97,38 @@ export default function HeatmapTimeline({
       maxZoom: 19,
     }).addTo(map);
 
-    // Pane for the pin so it stays above polygons
+    // dedicated pane so pin stays above polygons
     map.createPane("pinPane");
-    map.getPane("pinPane").style.zIndex = 700; // above overlays
+    map.getPane("pinPane").style.zIndex = 700;
 
-    // Create an initial pin and radius circle so something is visible immediately
-    if (!markerRef.current) {
-      markerRef.current = L.marker([lat, lng], {
-        icon: makePinIcon(),
-        pane: "pinPane",
-        zIndexOffset: 1000,
-      }).addTo(map);
-    }
-    // Fallback dot marker (helps verify position visibility)
-    if (!dotRef.current) {
-      dotRef.current = L.circleMarker([lat, lng], {
-        radius: 6,
-        color: "#0b3ab8",
-        weight: 2,
-        fillColor: "#2d6cff",
-        fillOpacity: 1,
-        pane: "pinPane",
-      }).addTo(map);
-    }
-    if (!circleRef.current) {
-      circleRef.current = L.circle([lat, lng], {
-        radius: radiusKm * 1000,
-        color: "#4ea1ff",
-        opacity: 0.9,
-        weight: 1,
-      }).addTo(map);
-    }
+    // initial pin + radius
+    markerRef.current = L.marker([lat, lng], {
+      icon: makePinIcon(),
+      pane: "pinPane",
+      zIndexOffset: 1000,
+    }).addTo(map);
 
+    // click to move center/pin
+    map.on("click", (e) => {
+      setLat(e.latlng.lat);
+      setLng(e.latlng.lng);
+      markerRef.current.setLatLng(e.latlng);
+      map.panTo(e.latlng);
+    });
+
+    // fix sizing after our fixed layout mounts
     setTimeout(() => map.invalidateSize(), 0);
     const onResize = () => map.invalidateSize();
     window.addEventListener("resize", onResize);
 
+    // optional geolocate
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const { latitude, longitude } = pos.coords;
-          setLat(latitude);
-          setLng(longitude);
-          const ll = [latitude, longitude];
-          if (markerRef.current) markerRef.current.setLatLng(ll);
-          if (dotRef.current) dotRef.current.setLatLng(ll);
-          if (circleRef.current) circleRef.current.setLatLng(ll);
+          const ll = [pos.coords.latitude, pos.coords.longitude];
+          setLat(ll[0]);
+          setLng(ll[1]);
+          markerRef.current.setLatLng(ll);
           map.setView(ll, 13);
         },
         () => {},
@@ -152,40 +136,20 @@ export default function HeatmapTimeline({
       );
     }
 
-    // Click to move center + pin
-    map.on("click", (e) => {
-      setLat(e.latlng.lat);
-      setLng(e.latlng.lng);
-      if (markerRef.current) markerRef.current.setLatLng(e.latlng);
-      if (dotRef.current) dotRef.current.setLatLng(e.latlng);
-      map.panTo(e.latlng);
-    });
-
-    return () => { window.removeEventListener("resize", onResize); map.remove(); };
+    return () => {
+      window.removeEventListener("resize", onResize);
+      map.remove();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ----------- pin + radius sync -----------
+  // -------- sync pin & radius --------
   useEffect(() => {
     if (!mapRef.current) return;
+    markerRef.current.setLatLng([lat, lng]).setZIndexOffset(1000);
+  }, [lat, lng]);
 
-    if (markerRef.current) markerRef.current.setLatLng([lat, lng]).setZIndexOffset(1000);
-    if (dotRef.current) dotRef.current.setLatLng([lat, lng]);
-
-    if (!circleRef.current) {
-      circleRef.current = L.circle([lat, lng], {
-        radius: radiusKm * 1000,
-        color: "#4ea1ff",
-        opacity: 0.9,
-        weight: 1,
-      }).addTo(mapRef.current);
-    } else {
-      circleRef.current.setLatLng([lat, lng]);
-      circleRef.current.setRadius(radiusKm * 1000);
-    }
-  }, [lat, lng, radiusKm]);
-
-  // ----------- draw polygons -----------
+  // -------- draw polygons (SOFT BORDERS) --------
   function renderGrid(payload) {
     if (layerRef.current) {
       mapRef.current.removeLayer(layerRef.current);
@@ -197,21 +161,18 @@ export default function HeatmapTimeline({
     }
     const polys = payload.cells.map((c) =>
       L.polygon(c.boundary, {
-        stroke: true,
-        color: "#ffffffaa",
-        weight: 1,
-        fillOpacity: 0.62,
+        stroke: false,          // soft/unclear borders
+        fillOpacity: 0.45,      // lighter like your normal heatmap
         fillColor: colorFor(c.value),
       }).bindTooltip(`${(c.value * 100).toFixed(0)}%`, { sticky: true })
     );
     layerRef.current = L.layerGroup(polys).addTo(mapRef.current);
-
     // keep pin above
-    if (markerRef.current) markerRef.current.setZIndexOffset(1000);
+    markerRef.current.setZIndexOffset(1000);
     setStatus(`Cells: ${payload.cells.length} — ${new Date(payload.when_local).toLocaleString()}`);
   }
 
-  // ----------- fetch & cache -----------
+  // -------- fetch & cache --------
   async function loadSlot(d) {
     const tKey = d.toISOString().slice(0, 16);
     const locKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
@@ -224,7 +185,7 @@ export default function HeatmapTimeline({
     return data;
   }
 
-  // ----------- slideshow driver -----------
+  // -------- slideshow --------
   useEffect(() => {
     if (!mapRef.current) return;
     let cancelled = false;
@@ -234,6 +195,7 @@ export default function HeatmapTimeline({
         const d = slots[idx];
         const payload = await loadSlot(d);
         if (!cancelled) renderGrid(payload);
+        // prefetch next
         const nextIdx = (idx + 1) % slots.length;
         void loadSlot(slots[nextIdx]).catch(() => {});
       } catch (e) {
@@ -258,7 +220,7 @@ export default function HeatmapTimeline({
     setIdx(0);
   }, [start, radiusKm, weight, stepMinutes, windowHours]);
 
-  // ----------- UI ----------
+  // -------- UI --------
   const currentLabel = formatSlotLabel(slots[idx] || start);
   const labelEvery = Math.max(1, Math.ceil(slots.length / 8));
   const axisLabels = slots.map((s, i) => (i % labelEvery === 0 ? formatSlotLabel(s) : ""));
@@ -275,6 +237,9 @@ export default function HeatmapTimeline({
         overflow: "hidden",
       }}
     >
+      {/* remove white box behind our SVG pin */}
+      <style>{`.pin-icon-no-bg{background:none!important;border:0!important;}`}</style>
+
       {/* Top bar */}
       <div
         style={{
@@ -364,6 +329,7 @@ export default function HeatmapTimeline({
         <div style={{ fontWeight: 600 }}>{currentLabel}</div>
 
         <div style={{ position: "relative" }}>
+          {/* Axis labels */}
           <div
             style={{
               position: "absolute",
@@ -384,6 +350,7 @@ export default function HeatmapTimeline({
             ))}
           </div>
 
+          {/* Ticks */}
           <div
             style={{
               position: "absolute",
