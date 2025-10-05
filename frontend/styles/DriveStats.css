@@ -29,14 +29,15 @@
   height: calc(100vh - 60px);
   width: 100vw;
   padding: 1.8rem 2.2rem;
-  background: var(--bg-dark);
+  background: var(--bg-light);
   align-items: start; /* keeps map and cards aligned at the top */
 }
+
 
 /* Map section */
 .map-panel {
   background: var(--bg-mid);
-  border-radius: var(--radius);
+  border-radius: 50px;
   box-shadow: var(--shadow);
   display: flex;
   align-items: center;
@@ -65,8 +66,8 @@
 }
 
 .card {
-  background: var(--bg-light);
-  border-radius: var(--radius);
+  background: #c4c3c3 ;
+  border-radius: 50px;
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;

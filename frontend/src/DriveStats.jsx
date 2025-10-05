@@ -44,9 +44,7 @@ export default function DriveStats() {
         <div className="brand">Uber</div>
         <div className="spacer" />
         <div className="nav-items">
-          <span>Dashboard</span>
-          <span>Earnings</span>
-          <span>Hotspots</span>
+          <button className="btn btn-link" onClick={() => navigate("/dashboard")} style={{textDecoration: "none", border: "none"}}>My Rides</button>
         </div>
       </nav>
 
@@ -57,9 +55,8 @@ export default function DriveStats() {
 
         <aside className="cards-grid">
           <div className="card">
-            <h3>Nearest Hotspot</h3>
+            <h3>Potential income</h3>
             <p className="value">0.5 km</p>
-            <button className="btn btn-green">Drive</button>
           </div>
 
           <div className="card">

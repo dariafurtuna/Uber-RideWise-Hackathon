@@ -288,9 +288,20 @@ def forecast_for_day(city_id: int, dow: int):
             for r in surge
         ]
 
+    # Get current hour in Amsterdam time
+    now = datetime.now(EU_AMS)
+    current_hour = now.hour
+    # Always get surge_multiplier from surge_by_hour for the current hour
+    surge_row = q("""
+        SELECT surge_multiplier
+        FROM surge_by_hour
+        WHERE city_id = ? AND hour = ?
+    """, (city_id, current_hour))
+    current_surge = surge_row[0]["surge_multiplier"] if surge_row else None
     return {
         "city_id": city_id,
         "city_name": city_name,
         "dow": dow,
-        "forecast": hourly
+        "forecast": hourly,
+        "current_surge": current_surge
     }

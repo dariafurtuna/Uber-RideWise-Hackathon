@@ -24,8 +24,8 @@ html, body, #root {
   height: 100%;
   width: 100%;
   font-family: "Uber Move", "Helvetica Neue", Arial, sans-serif;
-  background: var(--bg-dark);
-  color: var(--text-light);
+  background: var(--bg-light);
+  color: var(--text-dark);
   overflow-x: hidden;
 }
 
