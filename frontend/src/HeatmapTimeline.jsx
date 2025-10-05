@@ -44,10 +44,10 @@ function makePinIcon(color = "#E53935") {
   <circle cx="15" cy="21" r="5.5" fill="#fff"/>
 </svg>`;
   return L.divIcon({
-    className: "pin-icon-no-bg", // no white box
+    className: "pin-icon-no-bg",
     html,
     iconSize: [30, 46],
-    iconAnchor: [15, 46], // tip of pin
+    iconAnchor: [15, 46],
     popupAnchor: [0, -46],
   });
 }
@@ -58,7 +58,7 @@ export default function HeatmapTimeline({
   defaultRadiusKm = 3,
   stepMinutes = 30,
   windowHours = 4,
-  autoAdvanceMs = 2000, // 5s
+  autoAdvanceMs = 2000, // 2s
   defaultWeight = "count",
 }) {
   // -------- state --------
@@ -82,10 +82,13 @@ export default function HeatmapTimeline({
   const mapRef = useRef(null);
   const markerRef = useRef(null);
   const layerRef = useRef(null);
+  const mapNodeRef = useRef(null);
 
-  // -------- map init --------
+  // -------- map init (scoped to container ref) --------
   useEffect(() => {
-    const map = L.map("timeline-map", {
+    if (!mapNodeRef.current) return;
+
+    const map = L.map(mapNodeRef.current, {
       center: [lat, lng],
       zoom: 13,
       preferCanvas: true,
@@ -101,7 +104,7 @@ export default function HeatmapTimeline({
     map.createPane("pinPane");
     map.getPane("pinPane").style.zIndex = 700;
 
-    // initial pin + radius
+    // initial pin
     markerRef.current = L.marker([lat, lng], {
       icon: makePinIcon(),
       pane: "pinPane",
@@ -116,7 +119,7 @@ export default function HeatmapTimeline({
       map.panTo(e.latlng);
     });
 
-    // fix sizing after our fixed layout mounts
+    // recalc dimensions after mount & on resize
     setTimeout(() => map.invalidateSize(), 0);
     const onResize = () => map.invalidateSize();
     window.addEventListener("resize", onResize);
@@ -143,13 +146,13 @@ export default function HeatmapTimeline({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // -------- sync pin & radius --------
+  // -------- sync pin --------
   useEffect(() => {
     if (!mapRef.current) return;
     markerRef.current.setLatLng([lat, lng]).setZIndexOffset(1000);
   }, [lat, lng]);
 
-  // -------- draw polygons (SOFT BORDERS) --------
+  // -------- draw polygons --------
   function renderGrid(payload) {
     if (layerRef.current) {
       mapRef.current.removeLayer(layerRef.current);
@@ -161,13 +164,12 @@ export default function HeatmapTimeline({
     }
     const polys = payload.cells.map((c) =>
       L.polygon(c.boundary, {
-        stroke: false,          // soft/unclear borders
-        fillOpacity: 0.45,      // lighter like your normal heatmap
+        stroke: false,
+        fillOpacity: 0.45,
         fillColor: colorFor(c.value),
       }).bindTooltip(`${(c.value * 100).toFixed(0)}%`, { sticky: true })
     );
     layerRef.current = L.layerGroup(polys).addTo(mapRef.current);
-    // keep pin above
     markerRef.current.setZIndexOffset(1000);
     setStatus(`Cells: ${payload.cells.length} — ${new Date(payload.when_local).toLocaleString()}`);
   }
@@ -203,18 +205,20 @@ export default function HeatmapTimeline({
         console.error(e);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, lat, lng, radiusKm, weight, slots]);
 
-  // autoplay (5s)
+  // autoplay
   useEffect(() => {
     if (!playing) return;
     const t = setInterval(() => setIdx((i) => (i + 1) % slots.length), autoAdvanceMs);
     return () => clearInterval(t);
   }, [playing, slots.length, autoAdvanceMs]);
 
-  // IMPORTANT: do NOT reset index on lat/lng change
+  // reset cache on key param changes
   useEffect(() => {
     cacheRef.current.clear();
     setIdx(0);
@@ -223,51 +227,28 @@ export default function HeatmapTimeline({
   // -------- UI --------
   const currentLabel = formatSlotLabel(slots[idx] || start);
   const labelEvery = Math.max(1, Math.ceil(slots.length / 8));
-  const axisLabels = slots.map((s, i) => (i % labelEvery === 0 ? formatSlotLabel(s) : ""));
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        display: "grid",
-        gridTemplateRows: "56px 64px 1fr",
-        background: "#fff",
-        zIndex: 1,
-        overflow: "hidden",
-      }}
-    >
+    <div className="timeline-root">
       {/* remove white box behind our SVG pin */}
       <style>{`.pin-icon-no-bg{background:none!important;border:0!important;}`}</style>
 
       {/* Top bar */}
-      <div
-        style={{
-          height: 56,
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "0 12px",
-          background: "#0f1115",
-          color: "white",
-          zIndex: 3,
-          boxShadow: "0 2px 4px rgba(0,0,0,0.3)",
-        }}
-      >
+      <div className="timeline-toolbar">
         <strong style={{ marginRight: 8 }}>Heatmap Timeline</strong>
 
         <span>Lat</span>
         <input
           value={lat}
           onChange={(e) => setLat(parseFloat(e.target.value || lat))}
-          style={{ width: 110, background: "#222", color: "#fff", border: "1px solid #444" }}
+          className="tl-input"
         />
 
         <span>Lng</span>
         <input
           value={lng}
           onChange={(e) => setLng(parseFloat(e.target.value || lng))}
-          style={{ width: 110, background: "#222", color: "#fff", border: "1px solid #444" }}
+          className="tl-input"
         />
 
         <span>Radius (km)</span>
@@ -278,7 +259,7 @@ export default function HeatmapTimeline({
           step="0.5"
           value={radiusKm}
           onChange={(e) => setRadiusKm(parseFloat(e.target.value))}
-          style={{ width: 160 }}
+          className="tl-range"
         />
         <span>{radiusKm.toFixed(1)}</span>
 
@@ -286,25 +267,14 @@ export default function HeatmapTimeline({
         <select
           value={weight}
           onChange={(e) => setWeight(e.target.value)}
-          style={{ background: "#222", color: "#fff", border: "1px solid #444" }}
+          className="tl-select"
         >
           <option value="count">Count</option>
           <option value="earnings">Earnings</option>
           <option value="surge">Surge</option>
         </select>
 
-        <button
-          onClick={() => setPlaying((p) => !p)}
-          style={{
-            marginLeft: 8,
-            padding: "6px 10px",
-            background: "#2b2f36",
-            color: "#fff",
-            border: "1px solid #3b404a",
-            borderRadius: 6,
-            cursor: "pointer",
-          }}
-        >
+        <button onClick={() => setPlaying((p) => !p)} className="tl-button">
           {playing ? "Pause" : "Play"}
         </button>
 
@@ -312,66 +282,23 @@ export default function HeatmapTimeline({
       </div>
 
       {/* Timeline with axis */}
-      <div
-        style={{
-          height: 64,
-          display: "grid",
-          gridTemplateColumns: "140px 1fr 260px",
-          alignItems: "center",
-          gap: 12,
-          padding: "8px 12px 10px",
-          background: "#ffffff",
-          borderBottom: "1px solid #e6e7ea",
-          zIndex: 2,
-          boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
-        }}
-      >
+      <div className="timeline-axis">
         <div style={{ fontWeight: 600 }}>{currentLabel}</div>
 
         <div style={{ position: "relative" }}>
           {/* Axis labels */}
-          <div
-            style={{
-              position: "absolute",
-              top: -18,
-              left: 0,
-              right: 0,
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: 12,
-              color: "#333",
-              pointerEvents: "none",
-            }}
-          >
-            {axisLabels.map((lbl, i) => (
+          <div className="axis-labels">
+            {slots.map((s, i) => (
               <span key={i} style={{ width: 0, transform: "translateX(-50%)" }}>
-                {lbl}
+                {i % labelEvery === 0 ? formatSlotLabel(s) : ""}
               </span>
             ))}
           </div>
 
           {/* Ticks */}
-          <div
-            style={{
-              position: "absolute",
-              top: -4,
-              left: 0,
-              right: 0,
-              height: 6,
-              display: "flex",
-              justifyContent: "space-between",
-              pointerEvents: "none",
-            }}
-          >
+          <div className="axis-ticks">
             {slots.map((_, i) => (
-              <span
-                key={i}
-                style={{
-                  width: 1,
-                  height: i % Math.max(1, Math.ceil(slots.length / 8)) === 0 ? 6 : 4,
-                  background: "#b8bdc7",
-                }}
-              />
+              <span key={i} className="axis-tick" />
             ))}
           </div>
 
@@ -406,7 +333,8 @@ export default function HeatmapTimeline({
         </div>
       </div>
 
-      <div id="timeline-map" style={{ width: "100%", height: "100%", zIndex: 0 }} />
+      {/* Map fills remaining space */}
+      <div ref={mapNodeRef} className="timeline-map" />
     </div>
   );
 }

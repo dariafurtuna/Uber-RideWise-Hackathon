@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "./api";
 import HeatmapView from "./HeatmapView";
 import "/styles/DriveStats.css";
+import HeatmapTimeline from "./HeatmapTimeline";
 
 export default function DriveStats() {
   const navigate = useNavigate();
@@ -75,7 +76,7 @@ export default function DriveStats() {
             <div className="panel-sub">Tap on map to move center · Adjust radius to explore</div>
           </div>
           <div className="map-wrap">
-            <HeatmapView />
+            <HeatmapTimeline />
           </div>
         </section>
 

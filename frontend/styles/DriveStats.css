@@ -126,3 +126,70 @@
   .cards-grid{ grid-template-columns: 1fr; }
   .map-wrap{ height: 52vh; }
 }
+
+/* --- Scoped timeline layout so it doesn't hijack the whole page --- */
+.timeline-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;     /* fill .map-wrap height */
+  width: 100%;
+  background: #fff;
+  overflow: hidden;
+}
+
+.timeline-toolbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  background: #0f1115;
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,.3);
+  z-index: 1;
+}
+
+.tl-input  { width: 110px; background: #222; color: #fff; border: 1px solid #444; }
+.tl-select { background: #222; color: #fff; border: 1px solid #444; }
+.tl-range  { width: 160px; }
+.tl-button { margin-left: 8px; padding: 6px 10px; background: #2b2f36; color: #fff;
+             border: 1px solid #3b404a; border-radius: 6px; cursor: pointer; }
+
+.timeline-axis {
+  height: 64px;
+  display: grid;
+  grid-template-columns: 140px 1fr 260px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 10px;
+  background: #fff;
+  border-bottom: 1px solid #e6e7ea;
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  z-index: 1;
+}
+
+.axis-labels {
+  position: absolute; top: -18px; left: 0; right: 0;
+  display: flex; justify-content: space-between;
+  font-size: 12px; color: #333; pointer-events: none;
+}
+.axis-ticks {
+  position: absolute; top: -4px; left: 0; right: 0; height: 6px;
+  display: flex; justify-content: space-between; pointer-events: none;
+}
+.axis-tick {
+  width: 1px; height: 4px; background: #b8bdc7;
+}
+
+/* Map area flexes to fill remaining space */
+.timeline-map {
+  flex: 1 1 auto;    /* take the rest */
+  min-height: 0;     /* important for Leaflet in flex containers */
+}
+
+/* Let Leaflet fill its container */
+.timeline-map .leaflet-container,
+.timeline-map {
+  height: 100%;
+  width: 100%;
+}
