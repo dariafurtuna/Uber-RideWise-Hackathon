@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, getTodayLive } from "./api";
+import { api } from "./api";
 import HeatmapView from "./HeatmapView";
 import "/styles/DriveStats.css";
 
@@ -8,25 +8,27 @@ export default function DriveStats() {
   const navigate = useNavigate();
   const earnerId = "E10000";
 
-  const [todayEarnings, setTodayEarnings] = useState(null);
-  const [todayTime, setTodayTime] = useState(null);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let alive = true;
-
-    async function load() {
+    async function fetchSummary() {
       try {
-        const live = await getTodayLive(earnerId);
+        const res = await fetch(`http://localhost:8000/earners/${earnerId}/today_summary`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
         if (!alive) return;
-        setTodayEarnings(live.earn_eur);
-        setTodayTime((live.minutes || 0) / 60);
+        setSummary(data);
       } catch (e) {
-        console.error("live totals error", e);
+        setError(e.message || "Failed to fetch");
+      } finally {
+        setLoading(false);
       }
     }
-
-    load();
-    const id = setInterval(load, 3000);
+    fetchSummary();
+    const id = setInterval(fetchSummary, 20000);
     return () => { alive = false; clearInterval(id); };
   }, [earnerId]);
 
@@ -34,13 +36,6 @@ export default function DriveStats() {
     v == null
       ? "—"
       : Number(v).toLocaleString(undefined, { style: "currency", currency: "EUR" });
-
-  const formatHours = (h) => {
-    if (h == null) return "—";
-    const hours = Math.floor(h);
-    const mins = Math.round((h - hours) * 60);
-    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")} hrs`;
-  };
 
   return (
     <div className="uber-shell">
@@ -72,12 +67,17 @@ export default function DriveStats() {
 
           <div className="kpi-card card-surface">
             <div className="kpi-label">Income Today</div>
-            <div className="kpi-value">{todayEarnings === null ? "Loading…" : formatEuro(todayEarnings)}</div>
+            <div className="kpi-value">{loading ? "Loading…" : formatEuro(summary?.today_earnings)}</div>
           </div>
 
           <div className="kpi-card card-surface">
-            <div className="kpi-label">Elapsed Time</div>
-            <div className="kpi-value">{todayTime === null ? "Loading…" : formatHours(todayTime)}</div>
+            <div className="kpi-label">Rides Completed</div>
+            <div className="kpi-value">{loading ? "Loading…" : summary?.rides_completed ?? "—"}</div>
+          </div>
+
+          <div className="kpi-card card-surface">
+            <div className="kpi-label">Avg. Rider Rating</div>
+            <div className="kpi-value">{loading ? "Loading…" : summary?.avg_rating?.toFixed(2) ?? "—"}★</div>
           </div>
 
           <div className="kpi-card card-surface">
@@ -88,6 +88,11 @@ export default function DriveStats() {
             </button>
           </div>
         </aside>
+      {error && (
+        <div style={{ color: "red", textAlign: "center", marginTop: 10 }}>
+          ⚠ {String(error)}
+        </div>
+      )}
       </main>
     </div>
   );

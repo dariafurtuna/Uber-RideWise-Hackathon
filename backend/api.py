@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import sqlite3
@@ -11,6 +12,9 @@ from datetime import date, datetime
 from .routes.ride_rating import router as ride_rating_router
 from .routes.flow import router as flow_router
 # NEW: import the live overlay helper (no circular ref)
+
+# --- Unified daily summary endpoint ---
+
 
 # Resolve DB path relative to the repo root (parent of this 'backend' folder)
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -39,8 +43,46 @@ def q(sql, params=()):
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     rows = conn.execute(sql, params).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    return rows
+
+@app.get("/earners/{earner_id}/today_summary")
+def today_summary(earner_id: str):
+    """
+    Combined daily summary: earnings, rides completed, and average rating.
+    """
+    today_str = date.today().isoformat()
+    result = q("""
+        SELECT 
+            COALESCE(SUM(total_net_earnings), 0) AS today_earnings,
+            COALESCE(SUM(trips_count + orders_count), 0) AS rides_completed,
+            ROUND(AVG(avg_rating), 2) AS avg_rating
+        FROM earnings_daily
+        WHERE earner_id = ? AND date = ?;
+    """, (earner_id, today_str))
+    if result:
+        return result[0]
+    return {"today_earnings": 0, "rides_completed": 0, "avg_rating": 0.0}
+
+# Resolve DB path relative to the repo root (parent of this 'backend' folder)
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DB_PATH = REPO_ROOT / "db" / "uber_hackathon_v2.db"
+
+
+# CORS for Vite
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 
 H3_RES = 8
 EU_AMS = ZoneInfo("Europe/Amsterdam")
