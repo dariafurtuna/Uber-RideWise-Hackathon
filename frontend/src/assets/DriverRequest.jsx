@@ -1,7 +1,7 @@
 /*
-  DriverRequest.jsx — Minimal futurist Uber theme (v7)
-  - Sixth metric circle for SURGE
-  - Profitability reason now EXCLUDES surge text
+  DriverRequest.jsx — Minimal futurist Uber theme (latest)
+  - Keeps surge mention inside the profitability reason text
+  - Also shows a sixth metric circle for SURGE
   - Smooth crossfade to NEXT request after timeout AND after manual decline
   - Uses a single transitionToNext() helper with AbortController safety
 */
@@ -69,13 +69,12 @@ const Hairline = ({mt=16, mb=16}) => (
   <div style={{ height: 1, background: TOK.line, marginTop: mt, marginBottom: mb }} />
 );
 
-// Shorten reasons: remove "vs …", trailing bracketed pieces "(…)" or "[…]",
-// and REMOVE any "x… surge" mention (because surge has its own metric).
+// Shorten reasons: remove "vs …" and trailing bracketed pieces "(…)" or "[…]"
+// IMPORTANT: we DO NOT remove surge, we keep "x1.14 surge" in the text.
 function shortReason(text) {
   if (!text) return "";
-  let t = text.replace(/\s*x\s*\d+(?:\.\d+)?\s*surge/ig, "");  // drop surge
-  t = t.replace(/\s*vs\s+.*$/i, "");                          // drop comparisons
-  t = t.replace(/\s*[\(\[].*?[\)\]]\s*$/g, "");               // drop trailing () or []
+  let t = text.replace(/\s*vs\s+.*$/i, "");                // drop comparisons
+  t = t.replace(/\s*[\(\[].*?[\)\]]\s*$/g, "");            // drop trailing () or []
   return t.trim();
 }
 
@@ -204,7 +203,7 @@ export default function DriverRequest() {
     { key:"pickup",        label:"Pickup",        icon:<Ico.Pin/>,    value: Math.round(rating?.breakdown?.pickup ?? 0),        reason: shortReason(rating?.reasons?.pickup) },
     { key:"traffic",       label:"Traffic",       icon:<Ico.Traffic/>,value: Math.round(rating?.breakdown?.traffic ?? 0),       reason: shortReason(rating?.reasons?.traffic) },
     { key:"customer",      label:"Customer",      icon:<Ico.Star/>,   value: Math.round(rating?.breakdown?.customer ?? 0),      reason: shortReason(rating?.reasons?.customer) },
-    // NEW: surge as sixth metric (score mapped from multiplier)
+    // Surge as sixth metric (score mapped from multiplier)
     { key:"surge",         label:"Surge",         icon:<Ico.Surge/>,  value: Math.round(surgeScore),                             reason: surgeMult ? `x${surgeMult.toFixed(2)} multiplier` : "" },
   ]), [rating, surgeMult, surgeScore]);
 
@@ -275,7 +274,7 @@ export default function DriverRequest() {
 
         <Hairline />
 
-        {/* metrics grid with score circles (now 6 items) */}
+        {/* metrics grid with score circles (6 items) */}
         <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"18px 28px"}}>
           {metrics.map((m) => {
             const { bg, fg } = circleStyles(m.value);
@@ -330,7 +329,7 @@ export default function DriverRequest() {
         </div>
 
         {/* actions */}
-        <div style={{display:"flex", gap:16, marginTop:12}}>
+        <div style={{display:"flex", gap:16, marginTop:12, flexWrap:"wrap"}}>
           <button
             onClick={() => decide("accept")}
             disabled={disabled}
@@ -353,6 +352,17 @@ export default function DriverRequest() {
           >
             {deciding && !loading ? "…" : "Decline"}
           </button>
+          {offer?.status === "accepted" && (
+            <button
+              onClick={completeCurrent}
+              style={{
+                flexBasis:"100%", padding:"12px 18px", background:"#111", color:"#fff",
+                border:"none", borderRadius:10, fontWeight:700, fontSize:15
+              }}
+            >
+              Complete ride (add to today)
+            </button>
+          )}
         </div>
 
         {/* error */}

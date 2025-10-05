@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "./api";
+import { api, getTodayLive } from "./api";
 import HeatmapView from "./HeatmapView";
 import "/styles/DriveStats.css";
 
@@ -12,13 +12,22 @@ export default function DriveStats() {
   const [todayTime, setTodayTime] = useState(null);
 
   useEffect(() => {
-    api.earnerToday(earnerId)
-      .then((data) => setTodayEarnings(data.today_earnings))
-      .catch((err) => console.error("Failed to load today's earnings", err));
+    let alive = true;
 
-    api.earnerTodayTime(earnerId)
-      .then((data) => setTodayTime(data.today_time_hours))
-      .catch((err) => console.error("Failed to load today's driving time", err));
+    async function load() {
+      try {
+        const live = await getTodayLive(earnerId);
+        if (!alive) return;
+        setTodayEarnings(live.earn_eur);
+        setTodayTime((live.minutes || 0) / 60);
+      } catch (e) {
+        console.error("live totals error", e);
+      }
+    }
+
+    load();
+    const id = setInterval(load, 3000);
+    return () => { alive = false; clearInterval(id); };
   }, [earnerId]);
 
   const formatEuro = (v) =>

@@ -1,29 +1,46 @@
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 from random import uniform, randint
-from datetime import datetime
+from datetime import datetime, date
 import time
-
+import sqlite3
 from ..rating.models import RideCandidate
 from ..rating.service import rate_ride
 
 router = APIRouter(prefix="/flow", tags=["flow"])
-
-# Amsterdam center as reference
+_OFFERS = {}
 NL_AMS_LAT, NL_AMS_LON = 52.3702, 4.8952
-
-# In-memory offers {offer_id: offer_dict}
-_OFFERS: dict[str, dict] = {}
-
-def jitter(base, deg=0.02):
-    return base + uniform(-deg, deg)
-
-def _is_expired(offer: dict) -> bool:
-    return (time.time() - offer["created_at"]) > offer["ttl_seconds"]
 
 class DecisionIn(BaseModel):
     offer_id: str
     decision: str  # "accept" or "decline"
+
+@router.post("/drivers/{driver_id}/decision")
+def driver_decision(driver_id: str, body: DecisionIn):
+    """
+    Driver accepts or declines an offer.
+    """
+    offer = _OFFERS.get(body.offer_id)
+    if not offer:
+        raise HTTPException(status_code=404, detail="offer_not_found")
+    if offer["driver_id"] != driver_id:
+        raise HTTPException(status_code=403, detail="wrong_driver")
+    if offer["status"] != "pending":
+        return {"offer_id": body.offer_id, "status": offer["status"]}
+    decision = body.decision.lower().strip()
+    if decision not in ("accept", "decline"):
+        raise HTTPException(status_code=400, detail="invalid_decision")
+    offer["status"] = "accepted" if decision == "accept" else "declined"
+    return {"offer_id": body.offer_id, "status": offer["status"]}
+    decision: str  # "accept" or "decline"
+
+class CompleteIn(BaseModel):
+    offer_id: str
+    net_earnings: float | None = None
+    duration_mins: float | None = None
+
+def jitter(base, deg=0.02):
+    return base + uniform(-deg, deg)
 
 @router.get("/drivers/{driver_id}/next")
 def next_offer(driver_id: str, debug: bool = Query(False)):
@@ -31,7 +48,6 @@ def next_offer(driver_id: str, debug: bool = Query(False)):
     Simulate a new incoming ride for a given driver.
     The backend randomly generates pickup/dropoff, duration, etc.
     """
-    # --- Randomize ride details ---
     pickup_lat = jitter(NL_AMS_LAT, 0.02)
     pickup_lon = jitter(NL_AMS_LON, 0.02)
     drop_lat = jitter(NL_AMS_LAT, 0.04)
@@ -41,7 +57,6 @@ def next_offer(driver_id: str, debug: bool = Query(False)):
     rider_rating = round(uniform(4.4, 4.98), 2)
     rider_id = f"r{randint(1000, 9999)}"
 
-    # --- Create candidate ---
     candidate = RideCandidate(
         rider_id=rider_id,
         rider_rating=rider_rating,
@@ -59,46 +74,65 @@ def next_offer(driver_id: str, debug: bool = Query(False)):
         est_duration_mins=est_duration_mins,
     )
 
-    # --- Rate the ride ---
     rating = rate_ride(candidate, debug=debug)
 
-    # --- Build & store the offer ---
     offer_id = f"offer_{randint(100000,999999)}"
     offer = {
         "offer_id": offer_id,
         "driver_id": driver_id,
         "created_at": time.time(),
         "ttl_seconds": 25,
-        "status": "pending",  # pending | accepted | declined | expired
+        "status": "pending",
         "candidate": candidate.model_dump(),
         "rating": rating.model_dump(),
+        "actuals": None,
     }
     _OFFERS[offer_id] = offer
-
     return offer
 
-@router.post("/drivers/{driver_id}/decision")
-def driver_decision(driver_id: str, body: DecisionIn):
+def _db():
+    return sqlite3.connect("db/uber_hackathon_v2.db")
+
+@router.post("/drivers/{driver_id}/complete")
+def driver_complete(driver_id: str, body):
     """
-    Driver accepts or declines an offer.
+    Mark an accepted offer as completed and bump today's live aggregates in DB.
     """
-    offer = _OFFERS.get(body.offer_id)
-    if not offer:
-        raise HTTPException(status_code=404, detail="offer_not_found")
+    day = date.today().isoformat()
+    conn = _db()
+    try:
+        conn.execute("""
+            INSERT INTO live_aggregates (day, earner_id, earn_eur, minutes, rides)
+            VALUES (?, ?, ?, ?, 1)
+            ON CONFLICT(day, earner_id) DO UPDATE SET
+                earn_eur = earn_eur + excluded.earn_eur,
+                minutes  = minutes  + excluded.minutes,
+                rides    = rides    + 1;
+        """, (day, driver_id, float(body.net_eur or 0), float(body.duration_mins or 0)))
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "offer_id": getattr(body, 'offer_id', None), "status": "completed"}
 
-    if offer["driver_id"] != driver_id:
-        raise HTTPException(status_code=403, detail="wrong_driver")
-
-    if offer["status"] != "pending":
-        return {"offer_id": body.offer_id, "status": offer["status"]}
-
-    if _is_expired(offer):
-        offer["status"] = "expired"
-        return {"offer_id": body.offer_id, "status": "expired"}
-
-    decision = body.decision.lower().strip()
-    if decision not in ("accept", "decline"):
-        raise HTTPException(status_code=400, detail="invalid_decision")
-
-    offer["status"] = "accepted" if decision == "accept" else "declined"
-    return {"offer_id": body.offer_id, "status": offer["status"]}
+@router.get("/drivers/{driver_id}/today_live")
+def today_live(driver_id: str):
+    """
+    Read today's live aggregates from DB (persistent).
+    """
+    day = date.today().isoformat()
+    conn = _db()
+    try:
+        row = conn.execute("""
+            SELECT earn_eur, minutes, rides
+            FROM live_aggregates
+            WHERE day = ? AND earner_id = ?;
+        """, (day, driver_id)).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return {"earn_eur": 0.0, "minutes": 0.0, "rides": 0}
+    return {
+        "earn_eur": float(row[0] or 0.0),
+        "minutes": float(row[1] or 0.0),
+        "rides": int(row[2] or 0),
+    }
