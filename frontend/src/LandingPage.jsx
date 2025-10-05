@@ -17,6 +17,7 @@ export default function LandingPage() {
   const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const [surge, setSurge] = useState(null);
   const navigate = useNavigate();
+  const [city, setCity] = useState(1);
   // Demo values for weather
   const weather = { icon: "🌥️", label: "Cloudy", desc: "Medium traffic expected" };
 
@@ -26,6 +27,7 @@ export default function LandingPage() {
         const data = await getForecast(1, selectedDay);
         setForecast(data.forecast || []);
         setSurge(data.current_surge ?? null);
+        setCity(data.city_name|| "");
       } catch (e) {
         console.error("Failed to fetch forecast", e);
       }
@@ -70,7 +72,7 @@ export default function LandingPage() {
         </div>
       </div>
       <div className="lp-card lp-forecast">
-        <div className="lp-forecast-title" style={{ marginBottom: 28, marginTop: -10 }}>Ride Demand Forecast</div>
+        <div className="lp-forecast-title" style={{ marginBottom: 28, marginTop: -10 }}>Ride Demand Forecast for {city}</div>
         <div className="lp-forecast-chart-wrap">
           <div className="lp-forecast-yaxis">
             {yLabels.map((label, i) => (
