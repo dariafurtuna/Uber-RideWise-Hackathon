@@ -7,6 +7,7 @@ import DriveStats from "./DriveStats";
 import RideRating from "./RideRating";
 import Wellness from "./Wellness";
 import HeatmapView from "./HeatmapView";
+import HeatmapTimeline from "./HeatmapTimeline";
 import DriverRequest from "./assets/DriverRequest";
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
         <Route path="/ride-rating" element={<RideRating />} />
         <Route path="/wellness" element={<Wellness />} />
         <Route path="/heatmap" element={<HeatmapView />} />
+        <Route path="/heatmap-timeline" element={<HeatmapTimeline />} />
         <Route path="/driver" element={<DriverRequest />} />
       </Routes>
     </HashRouter>

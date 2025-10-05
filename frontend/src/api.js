@@ -90,3 +90,18 @@ export async function getForecast(cityId, dayOfWeek) {
 
 // Named export for HeatmapView.jsx compatibility
 export const fetchPredictedHeat = api.heatmapPredict;
+
+export async function heatmapPredict({ lat, lng, whenISO, radiusKm = 3, weight = "count", mode = "grid" }) {
+  const q = new URLSearchParams({
+    lat: String(lat),
+    lng: String(lng),
+    when: whenISO,
+    radius_km: String(radiusKm),
+    weight,
+    mode,
+  });
+  const res = await fetch(`${API}/heatmap/predict?${q.toString()}`);
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
