@@ -1,42 +1,61 @@
-
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ import navigation
+import { useNavigate } from "react-router-dom";
 import { api } from "./api";
 import HeatmapView from "./HeatmapView";
 import "/styles/DriveStats.css";
 
 export default function DriveStats() {
-  const navigate = useNavigate(); // ✅ navigation hook
-  const earnerId = "E10000";
-  const [todayEarnings, setTodayEarnings] = useState(null);
-  const [todayTime, setTodayTime] = useState(null);
+  const navigate = useNavigate();
+  const earnerId = "d42";
+
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
 
   useEffect(() => {
-    api.earnerToday(earnerId)
-      .then((data) => setTodayEarnings(data.today_earnings))
-      .catch((err) => console.error("Failed to load today's earnings", err));
+    let alive = true;
+    async function fetchSummary() {
+      try {
+        const res = await fetch(`http://localhost:8000/earners/${earnerId}/today_summary`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!alive) return;
+        setSummary(data);
+      } catch (e) {
+        setError(e.message || "Failed to fetch");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSummary();
+    const id = setInterval(fetchSummary, 20000);
+    return () => { alive = false; clearInterval(id); };
+  }, [earnerId]);
 
-    api.earnerTodayTime(earnerId)
-      .then((data) => setTodayTime(data.today_time_hours))
-      .catch((err) => console.error("Failed to load today's driving time", err));
+  // Listen for rideCompleted event to instantly refresh dashboard
+  useEffect(() => {
+    function handleRideCompleted() {
+      // Optimistic update
+      setSummary(prev => prev ? {
+        ...prev,
+        today_earnings: (prev.today_earnings ?? 0) + 5,
+        rides_completed: (prev.rides_completed ?? 0) + 1
+      } : prev);
+      // Fetch real data
+      fetch(`http://localhost:8000/earners/${earnerId}/today_summary`)
+        .then(r => r.json())
+        .then(setSummary)
+        .catch(console.error);
+    }
+    window.addEventListener("rideCompleted", handleRideCompleted);
+    return () => window.removeEventListener("rideCompleted", handleRideCompleted);
   }, [earnerId]);
 
   const formatEuro = (v) =>
     v == null
       ? "—"
-      : Number(v).toLocaleString(undefined, {
-          style: "currency",
-          currency: "EUR",
-        });
-
-  const formatHours = (h) => {
-    if (h == null) return "—";
-    const hours = Math.floor(h);
-    const mins = Math.round((h - hours) * 60);
-    return `${hours.toString().padStart(2, "0")}:${mins
-      .toString()
-      .padStart(2, "0")} hrs`;
-  };
+      : Number(v).toLocaleString(undefined, { style: "currency", currency: "EUR" });
 
   return (
     <div className="uber-shell">
@@ -44,51 +63,56 @@ export default function DriveStats() {
         <div className="brand">Uber</div>
         <div className="spacer" />
         <div className="nav-items">
-          <span>Dashboard</span>
-          <span>Earnings</span>
-          <span>Hotspots</span>
+          <button className="btn-link" onClick={() => navigate("/dashboard")}>Home</button>
+          <button className="btn-link" onClick={() => navigate("/driver")}>My Rides</button>
         </div>
       </nav>
 
       <main className="dashboard">
-        <section className="map-panel">
-          <HeatmapView />
+        <section className="map-panel card-surface">
+          <div className="panel-head">
+            <h1 className="page-title">Heat Zones</h1>
+            <div className="panel-sub">Tap on map to move center · Adjust radius to explore</div>
+          </div>
+          <div className="map-wrap">
+            <HeatmapView />
+          </div>
         </section>
 
         <aside className="cards-grid">
-          <div className="card">
-            <h3>Nearest Hotspot</h3>
-            <p className="value">0.5 km</p>
-            <button className="btn btn-green">Drive</button>
+          <div className="kpi-card card-surface">
+            <div className="kpi-label">Potential income</div>
+            <div className="kpi-value">3 km</div>
           </div>
 
-          <div className="card">
-            <h3>Income Today</h3>
-            <p className="value">
-              {todayEarnings === null
-                ? "Loading…"
-                : formatEuro(todayEarnings)}
-            </p>
+          <div className="kpi-card card-surface">
+            <div className="kpi-label">Income Today</div>
+            <div className="kpi-value">{loading ? "Loading…" : formatEuro(summary?.today_earnings)}</div>
           </div>
 
-          <div className="card">
-            <h3>Elapsed Time</h3>
-            <p className="value">
-              {todayTime === null ? "Loading…" : formatHours(todayTime)}
-            </p>
+          <div className="kpi-card card-surface">
+            <div className="kpi-label">Rides Completed</div>
+            <div className="kpi-value">{loading ? "Loading…" : summary?.rides_completed ?? "—"}</div>
           </div>
 
-          <div className="card">
-            <h3>Recommendations</h3>
-            <p className="muted">Smart suggestions for your next trip</p>
-            <button
-              className="btn btn-blue"
-              onClick={() => navigate("/wellness")} // ✅ redirect
-            >
+          <div className="kpi-card card-surface">
+            <div className="kpi-label">Avg. Rider Rating</div>
+            <div className="kpi-value">{loading ? "Loading…" : summary?.avg_rating?.toFixed(2) ?? "—"}★</div>
+          </div>
+
+          <div className="kpi-card card-surface">
+            <div className="kpi-label">Recommendations</div>
+            <div className="kpi-sub">Smart suggestions for your next trip</div>
+            <button className="btn-primary" onClick={() => navigate("/wellness")}>
               Get Recommendations
             </button>
           </div>
         </aside>
+      {error && (
+        <div style={{ color: "red", textAlign: "center", marginTop: 10 }}>
+          ⚠ {String(error)}
+        </div>
+      )}
       </main>
     </div>
   );

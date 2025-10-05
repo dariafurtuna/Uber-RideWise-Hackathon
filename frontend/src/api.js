@@ -1,3 +1,19 @@
+// live totals (in-memory demo)
+export async function getTodayLive(driverId) {
+  const r = await fetch(`${API}/flow/drivers/${encodeURIComponent(driverId)}/today_live`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+export async function completeRide(driverId, { offer_id, net_eur, duration_mins }) {
+  const r = await fetch(`${API}/flow/drivers/${encodeURIComponent(driverId)}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ offer_id, net_eur, duration_mins }),
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
 // src/api.js 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 

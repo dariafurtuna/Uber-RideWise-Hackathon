@@ -14,5 +14,7 @@ sqlite3 db/uber_hackathon_v2.db
 ### Start server
 python scripts\synthesize_rides.py --target 30000 --write-db
 python scripts\aggregate_trips.py
+python scripts/load_from_excel.py
+
 
 python -m uvicorn backend.api:app --reload --port 8000

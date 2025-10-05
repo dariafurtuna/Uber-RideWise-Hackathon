@@ -8,3 +8,6 @@ certifi
 requests
 dotenv
 h3
+pydantic
+sqlite3  # (built-in, no pip needed)
+python-dotenv
