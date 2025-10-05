@@ -1,10 +1,9 @@
-
 /*
-  DriverRequest.jsx — Minimal futurist Uber theme (v6)
+  DriverRequest.jsx — Minimal futurist Uber theme (v7)
+  - Sixth metric circle for SURGE
+  - Profitability reason now EXCLUDES surge text
   - Smooth crossfade to NEXT request after timeout AND after manual decline
   - Uses a single transitionToNext() helper with AbortController safety
-  - Keeps: bigger grade chip, short reasons (no 'vs', no 'x… surge'),
-           countdown above buttons, score circles, no suggestion/debug UI
 */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -50,6 +49,11 @@ const Ico = {
       <path d="M12 17.3L6.2 21l1.6-6.8L2 9.6l7-.6L12 2l3 7 7 .6-5.8 4.6L17.8 21z" />
     </svg>
   ),
+  Surge: (p = {}) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+      <path d="M3 12h5l3-7 3 14 3-7h5" />
+    </svg>
+  ),
 };
 
 /* ─────────────────────────────  helpers  ─────────────────────────────────── */
@@ -66,12 +70,12 @@ const Hairline = ({mt=16, mb=16}) => (
 );
 
 // Shorten reasons: remove "vs …", trailing bracketed pieces "(…)" or "[…]",
-// and remove "x… surge" tokens entirely.
+// and REMOVE any "x… surge" mention (because surge has its own metric).
 function shortReason(text) {
   if (!text) return "";
-  let t = text.replace(/\s*vs\s+.*$/i, "");               // drop comparisons
-  t = t.replace(/\s*x\s*\d+(?:\.\d+)?\s*surge/ig, "");    // drop surge mention
-  t = t.replace(/\s*[\(\[].*?[\)\]]\s*$/g, "");           // drop trailing ()
+  let t = text.replace(/\s*x\s*\d+(?:\.\d+)?\s*surge/ig, "");  // drop surge
+  t = t.replace(/\s*vs\s+.*$/i, "");                          // drop comparisons
+  t = t.replace(/\s*[\(\[].*?[\)\]]\s*$/g, "");               // drop trailing () or []
   return t.trim();
 }
 
@@ -85,11 +89,21 @@ function gradeFromOverall(overall) {
 
 // Circle darkness based on score (0–100)
 function circleStyles(val) {
-  const v = Math.max(0, Math.min(100, val || 0));
+  const v = Math.max(0, Math.min(100, Number.isFinite(val) ? val : 0));
   const light = 100 - v;
   const bg = `hsl(0, 0%, ${light}%)`;
   const fg = v > 60 ? "#fff" : TOK.text;
   return { bg, fg };
+}
+
+// Map surge multiplier to a 0–100 score for a circle
+function surgeToScore(mult) {
+  if (!Number.isFinite(mult)) return 50;
+  if (mult <= 1.0) return 50;
+  if (mult <= 1.2) return 50 + (mult - 1.0) * (15 / 0.2);  // 1.0→50, 1.2→65
+  if (mult <= 1.5) return 65 + (mult - 1.2) * (20 / 0.3);  // 1.2→65, 1.5→85
+  if (mult <= 2.0) return 85 + (mult - 1.5) * (10 / 0.5);  // 1.5→85, 2.0→95
+  return 95;
 }
 
 /* ─────────────────────────────  component  ───────────────────────────────── */
@@ -104,7 +118,7 @@ export default function DriverRequest() {
   const [error, setError] = useState(null);
   const [fading, setFading] = useState(false);
 
-  const abortRef = useRef(null); // cancel in-flight fetches
+  const abortRef = useRef(null);
   const rating = offer?.rating;
   const candidate = offer?.candidate;
 
@@ -130,12 +144,11 @@ export default function DriverRequest() {
     }
   }
 
-  // Smooth transition helper: fade out → fetch next → swap → fade in
   async function transitionToNext() {
     setFading(true);
     try {
       const data = await fetchOffer();
-      setOffer(data);                // swap while faded
+      setOffer(data);
       setSecsLeft(data.ttl_seconds ?? 30);
     } catch (e) {
       if (e.name !== "AbortError") setError(e.message || String(e));
@@ -156,10 +169,7 @@ export default function DriverRequest() {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       setOffer(o => (o ? { ...o, status: data.status } : o));
-      if (decision === "decline") {
-        // tiny delay so user sees "declined" change, then crossfade
-        setTimeout(() => transitionToNext(), 120);
-      }
+      if (decision === "decline") setTimeout(() => transitionToNext(), 120);
     } catch (e) {
       setError(e.message || String(e));
     } finally {
@@ -167,10 +177,8 @@ export default function DriverRequest() {
     }
   }
 
-  // initial
   useEffect(() => { loadOffer(); return () => abortRef.current?.abort(); }, []);
 
-  // countdown
   useEffect(() => {
     if (!offer) return;
     if (secsLeft <= 0 || offer.status !== "pending") return;
@@ -178,15 +186,17 @@ export default function DriverRequest() {
     return () => clearInterval(id);
   }, [offer, secsLeft]);
 
-  // timeout → smooth transition
   useEffect(() => {
     if (!offer) return;
-    if (offer.status === "pending" && secsLeft === 0) {
-      transitionToNext();
-    }
+    if (offer.status === "pending" && secsLeft === 0) transitionToNext();
   }, [offer, secsLeft]);
 
   const grade = gradeFromOverall(rating?.overall);
+
+  // Extract surge multiplier from profitability reason text (pattern: "x1.06")
+  const surgeMatch = rating?.reasons?.profitability?.match(/x([\d.]+)/);
+  const surgeMult = surgeMatch ? parseFloat(surgeMatch[1]) : null;
+  const surgeScore = surgeToScore(surgeMult);
 
   const metrics = useMemo(() => ([
     { key:"profitability", label:"Profitability", icon:<Ico.Trend/>,  value: Math.round(rating?.breakdown?.profitability ?? 0), reason: shortReason(rating?.reasons?.profitability) },
@@ -194,7 +204,9 @@ export default function DriverRequest() {
     { key:"pickup",        label:"Pickup",        icon:<Ico.Pin/>,    value: Math.round(rating?.breakdown?.pickup ?? 0),        reason: shortReason(rating?.reasons?.pickup) },
     { key:"traffic",       label:"Traffic",       icon:<Ico.Traffic/>,value: Math.round(rating?.breakdown?.traffic ?? 0),       reason: shortReason(rating?.reasons?.traffic) },
     { key:"customer",      label:"Customer",      icon:<Ico.Star/>,   value: Math.round(rating?.breakdown?.customer ?? 0),      reason: shortReason(rating?.reasons?.customer) },
-  ]), [rating]);
+    // NEW: surge as sixth metric (score mapped from multiplier)
+    { key:"surge",         label:"Surge",         icon:<Ico.Surge/>,  value: Math.round(surgeScore),                             reason: surgeMult ? `x${surgeMult.toFixed(2)} multiplier` : "" },
+  ]), [rating, surgeMult, surgeScore]);
 
   const expired = offer ? secsLeft <= 0 || offer.status === "expired" : false;
   const disabled = loading || deciding || expired || (offer?.status !== "pending");
@@ -257,13 +269,13 @@ export default function DriverRequest() {
             candidate?.rider_rating != null ? `${candidate.rider_rating.toFixed(2)}★` : "—"
           }/>
           <Summary label="Surge" value={
-            (rating?.reasons?.profitability?.match(/x[\d.]+/)?.[0]) ?? "—"
+            surgeMult ? `x${surgeMult.toFixed(2)}` : "—"
           }/>
         </div>
 
         <Hairline />
 
-        {/* metrics grid with score circles */}
+        {/* metrics grid with score circles (now 6 items) */}
         <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"18px 28px"}}>
           {metrics.map((m) => {
             const { bg, fg } = circleStyles(m.value);
@@ -280,7 +292,7 @@ export default function DriverRequest() {
                     alignItems:"center", justifyContent:"center",
                     fontWeight:800
                   }}>
-                    {m.value || 0}
+                    {Number.isFinite(m.value) ? m.value : 0}
                   </div>
                 </div>
                 {m.reason && (
