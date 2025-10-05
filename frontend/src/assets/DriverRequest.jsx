@@ -5,7 +5,9 @@
 */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "/styles/App.css";
+import "/styles/DriveStats.css";
 
 const TOK = {
   text: "#111111",
@@ -110,6 +112,7 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const DRIVER_ID = "d42";
 
 export default function DriverRequest() {
+  const navigate = useNavigate();
   const [offer, setOffer] = useState(null);
   const [secsLeft, setSecsLeft] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -250,8 +253,17 @@ export default function DriverRequest() {
   );
 
   return (
-    <div style={{ background: "#f8f9fa", minHeight: "100vh", position: "relative" }}>
-      <Card fading={fading}>
+    <div className="uber-shell">
+      <nav className="topbar">
+        <div className="brand">Uber</div>
+        <div className="spacer" />
+        <div className="nav-items">
+          <button className="btn-link" onClick={() => navigate("/drive-stats")}>Home</button>
+          <button className="btn-link" onClick={() => navigate("/driver")}>My Rides</button>
+        </div>
+     </nav>
+     <main style={{ background: "#f8f9fa", minHeight: "calc(100vh - 56px)", position: "relative" }}>
++      <Card fading={fading}>
         {/* Top section */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
@@ -340,6 +352,7 @@ export default function DriverRequest() {
           {toast}
         </div>
       )}
+       </main>
     </div>
   );
 }

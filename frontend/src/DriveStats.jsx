@@ -64,7 +64,7 @@ export default function DriveStats() {
         <div className="brand">Uber</div>
         <div className="spacer" />
         <div className="nav-items">
-          <button className="btn-link" onClick={() => navigate("/dashboard")}>Home</button>
+          <button className="btn-link" onClick={() => navigate("/drive-stats")}>Home</button>
           <button className="btn-link" onClick={() => navigate("/driver")}>My Rides</button>
         </div>
       </nav>
