@@ -3,7 +3,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchPredictedHeat } from "./api";
 
-// helper: ISO string with timezone offset
+/* time helper */
 function nowISO() {
   const d = new Date();
   const tzOffsetMin = -d.getTimezoneOffset();
@@ -14,11 +14,11 @@ function nowISO() {
   return d.toISOString().replace("Z", `${sign}${hh}:${mm}`);
 }
 
-// simple ramp: green → yellow → red
+/* soft green→yellow→red ramp with good readability */
 function colorFor(v) {
   const r = Math.round(255 * v);
-  const g = Math.round(255 * (1 - v));
-  return `rgba(${r}, ${g}, 0, 0.6)`; // 60% opacity
+  const g = Math.round(210 * (1 - v) + 45);
+  return `rgba(${r}, ${g}, 60, 0.56)`;
 }
 
 export default function HeatmapView() {
@@ -29,17 +29,13 @@ export default function HeatmapView() {
   const [weight, setWeight] = useState("count");
 
   const whenISO = useMemo(() => nowISO(), []);
-
   const mapRef = useRef(null);
   const circleRef = useRef(null);
   const layerRef = useRef(null);
 
-  // init map
+  /* init map */
   useEffect(() => {
-    const map = L.map("heatmap-map", {
-      center: [lat, lng],
-      zoom: 13,
-    });
+    const map = L.map("heatmap-map", { center: [lat, lng], zoom: 12 });
     mapRef.current = map;
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -56,14 +52,13 @@ export default function HeatmapView() {
     return () => map.remove();
   }, []);
 
-  // draw/update radius circle
+  /* radius overlay */
   useEffect(() => {
     if (!mapRef.current) return;
     if (!circleRef.current) {
       circleRef.current = L.circle([lat, lng], {
         radius: radiusKm * 1000,
-        color: "#4ea1ff",
-        opacity: 0.5,
+        color: "#111", weight: 1, opacity: 0.6,
       }).addTo(mapRef.current);
     } else {
       circleRef.current.setLatLng([lat, lng]);
@@ -73,32 +68,20 @@ export default function HeatmapView() {
 
   async function loadHeat() {
     try {
-      
       const data = await fetchPredictedHeat({
-        lat,
-        lng,
-        radiusKm,
-        whenISO,
-        weight,
-        mode: "grid", // IMPORTANT
+        lat, lng, radiusKm, whenISO, weight,
       });
       setStatus(`Loaded ${data.count} zones`);
 
-      // remove old polygons if present
-      if (layerRef.current) {
-        mapRef.current.removeLayer(layerRef.current);
-      }
+      if (layerRef.current) mapRef.current.removeLayer(layerRef.current);
 
-      // draw polygons for each cell
-      const polys = data.cells.map((c) =>
+      const polys = (data.cells || []).map((c) =>
         L.polygon(c.boundary, {
           fillColor: colorFor(c.value),
           fillOpacity: 0.6,
-          stroke: false,
-        }).bindTooltip(
-          `Value: ${(c.value * 100).toFixed(0)}%<br/>H3: ${c.h3}`,
-          { sticky: true }
-        )
+          color: "transparent",
+          weight: 0,
+        }).bindTooltip(`<b>${(c.value * 100).toFixed(0)}%</b> · ${c.h3}`, { sticky: true })
       );
 
       layerRef.current = L.layerGroup(polys).addTo(mapRef.current);
@@ -109,53 +92,66 @@ export default function HeatmapView() {
     }
   }
 
-  // reload when inputs change
+  /* reload when inputs change */
   useEffect(() => {
     if (mapRef.current) loadHeat();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng, radiusKm, weight]);
 
   return (
-    <div style={{ borderRadius: "50px", display: "grid", gridTemplateRows: "70px 1fr", height: "100%" }}>
-      <div style={{ borderRadius: "17px", background: "#111", color: "#fff", display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
-        <strong style={{ marginRight: 10 }}>Heat Zones</strong>
+    <div className="heat-root">
+      <div className="chipbar">
+        <div className="chip">
+          <span className="chip-label">Lat</span>
+          <input
+            className="chip-input"
+            value={lat}
+            onChange={(e) => setLat(parseFloat(e.target.value || lat))}
+            placeholder="latitude"
+          />
+        </div>
 
-        <span>Lat</span>
-        <input
-          value={lat}
-          onChange={(e) => setLat(parseFloat(e.target.value || lat))}
-          style={{ width: 110 }}
-        />
-        <span>Lng</span>
-        <input
-          value={lng}
-          onChange={(e) => setLng(parseFloat(e.target.value || lng))}
-          style={{ width: 110 }}
-        />
+        <div className="chip">
+          <span className="chip-label">Lng</span>
+          <input
+            className="chip-input"
+            value={lng}
+            onChange={(e) => setLng(parseFloat(e.target.value || lng))}
+            placeholder="longitude"
+          />
+        </div>
 
-        <span style={{ marginLeft: 8 }}>Radius (km)</span>
-        <input
-          type="range"
-          min="0.5"
-          max="10"
-          step="0.5"
-          value={radiusKm}
-          onChange={(e) => setRadiusKm(parseFloat(e.target.value))}
-          style={{ borderRadius: "17px", appearance: "none", width: 160, background: "#ffffffff", cursor: "pointer", accentColor: "#000" }}
-        />
-        <span>{radiusKm.toFixed(1)}</span>
+        <div className="chip">
+          <span className="chip-label">Radius</span>
+          <input
+            className="chip-range"
+            type="range"
+            min="0.5"
+            max="10"
+            step="0.5"
+            value={radiusKm}
+            onChange={(e) => setRadiusKm(parseFloat(e.target.value))}
+          />
+          <span className="chip-suffix">{radiusKm.toFixed(1)} km</span>
+        </div>
 
-        <span style={{ marginLeft: 10 }}>Weight</span>
-        <select value={weight} onChange={(e) => setWeight(e.target.value)}>
-          <option value="count">Count</option>
-          <option value="earnings">Earnings</option>
-          <option value="surge">Surge</option>
-        </select>
+        <div className="chip">
+          <span className="chip-label">Weight</span>
+          <select
+            className="chip-select"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+          >
+            <option value="count">Count</option>
+            <option value="earnings">Earnings</option>
+            <option value="surge">Surge</option>
+          </select>
+        </div>
 
-        <span style={{ marginLeft: "auto", opacity: 0.85 }}>{status}</span>
+        <div className="chip status">{status}</div>
       </div>
 
-      <div id="heatmap-map" style={{ width: "100%", height: "100%" }} />
+      <div id="heatmap-map" className="heat-map" />
     </div>
   );
 }
