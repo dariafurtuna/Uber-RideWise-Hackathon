@@ -10,8 +10,54 @@ import h3
 import math
 from datetime import date, datetime
 from .routes.ride_rating import router as ride_rating_router
-from .routes.flow import router as flow_router
+from .routes.flow import router as flow_router, _DRIVER_STATS
 # NEW: import the live overlay helper (no circular ref)
+
+app = FastAPI(title="Smart Earner API")
+
+# Mount routers
+app.include_router(ride_rating_router)
+app.include_router(flow_router)
+
+# CORS for Vite
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+def q(sql, params=()):
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(sql, params).fetchall()
+    return rows
+
+@app.get("/earners/{earner_id}/today_extended")
+def earner_today_extended(earner_id: str):
+    """
+    Combine DB-based stats with live simulated driver data.
+    """
+    base = {"today_rides": 0, "avg_rating": 0.0}
+
+    if earner_id in _DRIVER_STATS:
+        stats = _DRIVER_STATS[earner_id]
+        rides = stats.get("today_rides", 0)
+        rating = (
+            round(stats["ratings_sum"] / rides, 2)
+            if rides > 0 else 0.0
+        )
+        base.update({
+            "today_rides": rides,
+            "avg_rating": rating
+        })
+    return base
 
 # --- Unified daily summary endpoint ---
 

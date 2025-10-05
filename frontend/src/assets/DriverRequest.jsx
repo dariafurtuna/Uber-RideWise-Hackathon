@@ -1,15 +1,12 @@
 /*
-  DriverRequest.jsx — Minimal futurist Uber theme (latest)
-  - Keeps surge mention inside the profitability reason text
-  - Also shows a sixth metric circle for SURGE
-  - Smooth crossfade to NEXT request after timeout AND after manual decline
-  - Uses a single transitionToNext() helper with AbortController safety
+  DriverRequest.jsx — Full updated version
+  - Adds completeCurrent() to mark a ride completed and persist live stats
+  - Dispatches 'rideCompleted' event for live dashboard updates
 */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import "/styles/App.css";
 
-/* ─────────────────────────────  design tokens  ───────────────────────────── */
 const TOK = {
   text: "#111111",
   sub: "#6b7280",
@@ -22,7 +19,6 @@ const TOK = {
   radius: 16,
 };
 
-/* ─────────────────────────────  inline icons  ─────────────────────────────── */
 const Ico = {
   Trend: (p = {}) => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
@@ -56,37 +52,43 @@ const Ico = {
   ),
 };
 
-/* ─────────────────────────────  helpers  ─────────────────────────────────── */
 const Card = ({ children, fading }) => (
-  <section style={{
-    maxWidth: 960, margin: "32px auto", background:"#fff", color: TOK.text,
-    borderRadius: TOK.radius, boxShadow:"0 8px 32px rgba(0,0,0,.06)", padding: 28,
-    opacity: fading ? 0 : 1, transition: "opacity 260ms ease"
-  }}>{children}</section>
+  <section
+    style={{
+      maxWidth: 960,
+      margin: "32px auto",
+      background: "#fff",
+      color: TOK.text,
+      borderRadius: TOK.radius,
+      boxShadow: "0 8px 32px rgba(0,0,0,.06)",
+      padding: 28,
+      opacity: fading ? 0 : 1,
+      transition: "opacity 260ms ease",
+    }}
+  >
+    {children}
+  </section>
 );
 
-const Hairline = ({mt=16, mb=16}) => (
+const Hairline = ({ mt = 16, mb = 16 }) => (
   <div style={{ height: 1, background: TOK.line, marginTop: mt, marginBottom: mb }} />
 );
 
-// Shorten reasons: remove "vs …" and trailing bracketed pieces "(…)" or "[…]"
-// IMPORTANT: we DO NOT remove surge, we keep "x1.14 surge" in the text.
 function shortReason(text) {
   if (!text) return "";
-  let t = text.replace(/\s*vs\s+.*$/i, "");                // drop comparisons
-  t = t.replace(/\s*[\(\[].*?[\)\]]\s*$/g, "");            // drop trailing () or []
+  let t = text.replace(/\s*vs\s+.*$/i, "");
+  t = t.replace(/\s*[\(\[].*?[\)\]]\s*$/g, "");
   return t.trim();
 }
 
 function gradeFromOverall(overall) {
   if (overall == null) return { label: "—", bg: "#f3f4f6", fg: TOK.text };
   if (overall >= 85) return { label: "Excellent", bg: "#171717", fg: "#ffffff" };
-  if (overall >= 70) return { label: "Good",      bg: "#232323", fg: "#ffffff" };
-  if (overall >= 55) return { label: "Fair",      bg: "#dcdcdc", fg: TOK.text   };
-  return               { label: "Poor",      bg: "#efefef", fg: TOK.text   };
+  if (overall >= 70) return { label: "Good", bg: "#232323", fg: "#ffffff" };
+  if (overall >= 55) return { label: "Fair", bg: "#dcdcdc", fg: TOK.text };
+  return { label: "Poor", bg: "#efefef", fg: TOK.text };
 }
 
-// Circle darkness based on score (0–100)
 function circleStyles(val) {
   const v = Math.max(0, Math.min(100, Number.isFinite(val) ? val : 0));
   const light = 100 - v;
@@ -95,17 +97,15 @@ function circleStyles(val) {
   return { bg, fg };
 }
 
-// Map surge multiplier to a 0–100 score for a circle
 function surgeToScore(mult) {
   if (!Number.isFinite(mult)) return 50;
   if (mult <= 1.0) return 50;
-  if (mult <= 1.2) return 50 + (mult - 1.0) * (15 / 0.2);  // 1.0→50, 1.2→65
-  if (mult <= 1.5) return 65 + (mult - 1.2) * (20 / 0.3);  // 1.2→65, 1.5→85
-  if (mult <= 2.0) return 85 + (mult - 1.5) * (10 / 0.5);  // 1.5→85, 2.0→95
+  if (mult <= 1.2) return 50 + (mult - 1.0) * (15 / 0.2);
+  if (mult <= 1.5) return 65 + (mult - 1.2) * (20 / 0.3);
+  if (mult <= 2.0) return 85 + (mult - 1.5) * (10 / 0.5);
   return 95;
 }
 
-/* ─────────────────────────────  component  ───────────────────────────────── */
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const DRIVER_ID = "d42";
 
@@ -116,6 +116,7 @@ export default function DriverRequest() {
   const [deciding, setDeciding] = useState(false);
   const [error, setError] = useState(null);
   const [fading, setFading] = useState(false);
+  const [toast, setToast] = useState("");
 
   const abortRef = useRef(null);
   const rating = offer?.rating;
@@ -131,7 +132,8 @@ export default function DriverRequest() {
   }
 
   async function loadOffer() {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
       const data = await fetchOffer();
       setOffer(data);
@@ -158,7 +160,8 @@ export default function DriverRequest() {
 
   async function decide(decision) {
     if (!offer) return;
-    setDeciding(true); setError(null);
+    setDeciding(true);
+    setError(null);
     try {
       const r = await fetch(`${API}/flow/drivers/${offer.driver_id}/decision`, {
         method: "POST",
@@ -167,7 +170,7 @@ export default function DriverRequest() {
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
-      setOffer(o => (o ? { ...o, status: data.status } : o));
+      setOffer((o) => (o ? { ...o, status: data.status } : o));
       if (decision === "decline") setTimeout(() => transitionToNext(), 120);
     } catch (e) {
       setError(e.message || String(e));
@@ -176,12 +179,39 @@ export default function DriverRequest() {
     }
   }
 
-  useEffect(() => { loadOffer(); return () => abortRef.current?.abort(); }, []);
+  // ✅ NEW — Complete current ride
+  async function completeCurrent() {
+    if (!offer) return;
+    try {
+      const earningsText = rating?.reasons?.profitability?.match(/€([\d.,]+)/)?.[1];
+      const net_eur = earningsText ? parseFloat(earningsText.replace(",", "")) : 5.0;
+      const duration_mins = candidate?.est_duration_mins ?? 15;
+
+      const r = await fetch(`${API}/flow/drivers/${DRIVER_ID}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offer_id: offer.offer_id, net_eur, duration_mins }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      setToast("✅ Ride completed and added to dashboard!");
+      window.dispatchEvent(new Event("rideCompleted")); // notify dashboard
+      setTimeout(() => setToast(""), 2500);
+      transitionToNext();
+    } catch (e) {
+      setError(e.message || String(e));
+    }
+  }
+
+  useEffect(() => {
+    loadOffer();
+    return () => abortRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     if (!offer) return;
     if (secsLeft <= 0 || offer.status !== "pending") return;
-    const id = setInterval(() => setSecsLeft(s => Math.max(0, s - 1)), 1000);
+    const id = setInterval(() => setSecsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [offer, secsLeft]);
 
@@ -191,61 +221,45 @@ export default function DriverRequest() {
   }, [offer, secsLeft]);
 
   const grade = gradeFromOverall(rating?.overall);
-
-  // Extract surge multiplier from profitability reason text (pattern: "x1.06")
   const surgeMatch = rating?.reasons?.profitability?.match(/x([\d.]+)/);
   const surgeMult = surgeMatch ? parseFloat(surgeMatch[1]) : null;
   const surgeScore = surgeToScore(surgeMult);
 
-  const metrics = useMemo(() => ([
-    { key:"profitability", label:"Profitability", icon:<Ico.Trend/>,  value: Math.round(rating?.breakdown?.profitability ?? 0), reason: shortReason(rating?.reasons?.profitability) },
-    { key:"time",          label:"Time",          icon:<Ico.Clock/>,  value: Math.round(rating?.breakdown?.time ?? 0),          reason: shortReason(rating?.reasons?.time) },
-    { key:"pickup",        label:"Pickup",        icon:<Ico.Pin/>,    value: Math.round(rating?.breakdown?.pickup ?? 0),        reason: shortReason(rating?.reasons?.pickup) },
-    { key:"traffic",       label:"Traffic",       icon:<Ico.Traffic/>,value: Math.round(rating?.breakdown?.traffic ?? 0),       reason: shortReason(rating?.reasons?.traffic) },
-    { key:"customer",      label:"Customer",      icon:<Ico.Star/>,   value: Math.round(rating?.breakdown?.customer ?? 0),      reason: shortReason(rating?.reasons?.customer) },
-    // Surge as sixth metric (score mapped from multiplier)
-    { key:"surge",         label:"Surge",         icon:<Ico.Surge/>,  value: Math.round(surgeScore),                             reason: surgeMult ? `x${surgeMult.toFixed(2)} multiplier` : "" },
-  ]), [rating, surgeMult, surgeScore]);
+  const metrics = useMemo(
+    () => [
+      { key: "profitability", label: "Profitability", icon: <Ico.Trend />, value: Math.round(rating?.breakdown?.profitability ?? 0), reason: shortReason(rating?.reasons?.profitability) },
+      { key: "time", label: "Time", icon: <Ico.Clock />, value: Math.round(rating?.breakdown?.time ?? 0), reason: shortReason(rating?.reasons?.time) },
+      { key: "pickup", label: "Pickup", icon: <Ico.Pin />, value: Math.round(rating?.breakdown?.pickup ?? 0), reason: shortReason(rating?.reasons?.pickup) },
+      { key: "traffic", label: "Traffic", icon: <Ico.Traffic />, value: Math.round(rating?.breakdown?.traffic ?? 0), reason: shortReason(rating?.reasons?.traffic) },
+      { key: "customer", label: "Customer", icon: <Ico.Star />, value: Math.round(rating?.breakdown?.customer ?? 0), reason: shortReason(rating?.reasons?.customer) },
+      { key: "surge", label: "Surge", icon: <Ico.Surge />, value: Math.round(surgeScore), reason: surgeMult ? `x${surgeMult.toFixed(2)} multiplier` : "" },
+    ],
+    [rating, surgeMult, surgeScore]
+  );
 
   const expired = offer ? secsLeft <= 0 || offer.status === "expired" : false;
   const disabled = loading || deciding || expired || (offer?.status !== "pending");
 
-  const progress = offer && offer.status === "pending"
-    ? Math.max(0, secsLeft) / (offer.ttl_seconds ?? 30)
-    : 0;
+  const progress = offer && offer.status === "pending" ? Math.max(0, secsLeft) / (offer.ttl_seconds ?? 30) : 0;
 
-  const Summary = ({label, value}) => (
-    <div style={{textAlign:"center"}}>
-      <div style={{fontSize:20, fontWeight:700}}>{value}</div>
-      <div style={{fontSize:13, color:TOK.sub}}>{label}</div>
+  const Summary = ({ label, value }) => (
+    <div style={{ textAlign: "center" }}>
+      <div style={{ fontSize: 20, fontWeight: 700 }}>{value}</div>
+      <div style={{ fontSize: 13, color: TOK.sub }}>{label}</div>
     </div>
   );
 
   return (
-    <div style={{background:"#f8f9fa", minHeight:"100vh"}}>
+    <div style={{ background: "#f8f9fa", minHeight: "100vh", position: "relative" }}>
       <Card fading={fading}>
-        {/* top: score + grade */}
-        <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start"}}>
+        {/* Top section */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <div style={{fontSize:72, fontWeight:800, lineHeight:1, letterSpacing:"-0.5px"}}>
-              {rating ? Math.round(rating.overall) : "—"}
-            </div>
-            <div style={{fontSize:14, color:TOK.sub, marginTop:4}}>Overall score</div>
+            <div style={{ fontSize: 72, fontWeight: 800, lineHeight: 1 }}>{rating ? Math.round(rating.overall) : "—"}</div>
+            <div style={{ fontSize: 14, color: TOK.sub, marginTop: 4 }}>Overall score</div>
           </div>
-          <div style={{textAlign:"right"}}>
-            <div
-              style={{
-                display:"inline-block",
-                padding:"10px 16px",
-                borderRadius:999,
-                background: grade.bg,
-                color: grade.fg,
-                fontWeight:900,
-                minWidth:132,
-                textAlign:"center",
-                fontSize:18,
-              }}
-            >
+          <div style={{ textAlign: "right" }}>
+            <div style={{ display: "inline-block", padding: "10px 16px", borderRadius: 999, background: grade.bg, color: grade.fg, fontWeight: 900, minWidth: 132, textAlign: "center", fontSize: 18 }}>
               {grade.label}
             </div>
           </div>
@@ -253,49 +267,34 @@ export default function DriverRequest() {
 
         <Hairline mt={20} mb={20} />
 
-        {/* summary row */}
-        <div style={{display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:18}}>
-          <Summary label="Distance" value={
-            candidate?.est_distance_km != null ? `${candidate.est_distance_km} km` : "—"
-          }/>
-          <Summary label="Duration" value={
-            candidate?.est_duration_mins != null ? `${candidate.est_duration_mins} min` : "—"
-          }/>
-          <Summary label="Estimate" value={
-            (rating?.reasons?.profitability?.match(/€[\d.,]+/)?.[0]) ?? "—"
-          }/>
-          <Summary label="Rider" value={
-            candidate?.rider_rating != null ? `${candidate.rider_rating.toFixed(2)}★` : "—"
-          }/>
-          <Summary label="Surge" value={
-            surgeMult ? `x${surgeMult.toFixed(2)}` : "—"
-          }/>
+        {/* Summary */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 18 }}>
+          <Summary label="Distance" value={candidate?.est_distance_km != null ? `${candidate.est_distance_km} km` : "—"} />
+          <Summary label="Duration" value={candidate?.est_duration_mins != null ? `${candidate.est_duration_mins} min` : "—"} />
+          <Summary label="Estimate" value={rating?.reasons?.profitability?.match(/€[\d.,]+/)?.[0] ?? "—"} />
+          <Summary label="Rider" value={candidate?.rider_rating != null ? `${candidate.rider_rating.toFixed(2)}★` : "—"} />
+          <Summary label="Surge" value={surgeMult ? `x${surgeMult.toFixed(2)}` : "—"} />
         </div>
 
         <Hairline />
 
-        {/* metrics grid with score circles (6 items) */}
-        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"18px 28px"}}>
+        {/* Metrics */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "18px 28px" }}>
           {metrics.map((m) => {
             const { bg, fg } = circleStyles(m.value);
             return (
               <div key={m.key}>
-                <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
-                  <div style={{display:"flex", alignItems:"center", gap:10}}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span>{m.icon}</span>
-                    <span style={{fontWeight:600}}>{m.label}</span>
+                    <span style={{ fontWeight: 600 }}>{m.label}</span>
                   </div>
-                  <div style={{
-                    minWidth:40, height:40, borderRadius:"50%",
-                    background:bg, color:fg, display:"flex",
-                    alignItems:"center", justifyContent:"center",
-                    fontWeight:800
-                  }}>
+                  <div style={{ minWidth: 40, height: 40, borderRadius: "50%", background: bg, color: fg, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
                     {Number.isFinite(m.value) ? m.value : 0}
                   </div>
                 </div>
                 {m.reason && (
-                  <div style={{marginLeft:28, marginTop:6, color:TOK.sub, fontSize:14}}>
+                  <div style={{ marginLeft: 28, marginTop: 6, color: TOK.sub, fontSize: 14 }}>
                     {m.reason}
                   </div>
                 )}
@@ -304,70 +303,43 @@ export default function DriverRequest() {
           })}
         </div>
 
-        {/* status strip */}
-        <div style={{
-          background:TOK.chipBg, borderRadius:12, padding:"12px 14px",
-          fontSize:14, color:"#374151", marginTop:24
-        }}>
+        {/* Status */}
+        <div style={{ background: TOK.chipBg, borderRadius: 12, padding: "12px 14px", fontSize: 14, color: "#374151", marginTop: 24 }}>
           <span>Offer: <b>{offer?.offer_id || "…"}</b></span>
-          <span style={{margin:"0 8px"}}>•</span>
-          <span>Status: <b style={{color:
-            offer?.status==="accepted" ? TOK.ok :
-            offer?.status==="declined" ? TOK.neutral :
-            offer?.status==="expired" ? TOK.danger : TOK.text
-          }}>{offer?.status || "…"}</b></span>
-          <span style={{margin:"0 8px"}}>•</span>
+          <span style={{ margin: "0 8px" }}>•</span>
+          <span>Status: <b style={{ color: offer?.status === "accepted" ? TOK.ok : offer?.status === "declined" ? TOK.neutral : offer?.status === "expired" ? TOK.danger : TOK.text }}>{offer?.status || "…"}</b></span>
+          <span style={{ margin: "0 8px" }}>•</span>
           <span>Expires in: <b>{Math.max(0, secsLeft)}s</b></span>
         </div>
 
-        {/* countdown bar ABOVE actions */}
-        <div style={{ height:6, background:TOK.line, borderRadius:999, marginTop:14, overflow:"hidden" }}>
-          <div style={{
-            height:"100%", width:`${progress*100}%`, background:TOK.black,
-            transition:"width 1s linear"
-          }}/>
+        {/* Progress bar */}
+        <div style={{ height: 6, background: TOK.line, borderRadius: 999, marginTop: 14, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${progress * 100}%`, background: TOK.black, transition: "width 1s linear" }} />
         </div>
 
-        {/* actions */}
-        <div style={{display:"flex", gap:16, marginTop:12, flexWrap:"wrap"}}>
-          <button
-            onClick={() => decide("accept")}
-            disabled={disabled}
-            style={{
-              flex:1, padding:"16px 20px", background:TOK.black, color:"#fff",
-              border:"none", borderRadius:12, fontWeight:800, fontSize:16,
-              opacity: disabled ? .6 : 1, cursor: disabled ? "not-allowed" : "pointer"
-            }}
-          >
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: 16, marginTop: 12, flexWrap: "wrap" }}>
+          <button onClick={() => decide("accept")} disabled={disabled} style={{ flex: 1, padding: "16px 20px", background: TOK.black, color: "#fff", border: "none", borderRadius: 12, fontWeight: 800, fontSize: 16, opacity: disabled ? 0.6 : 1 }}>
             {deciding && !loading ? "…" : "Accept"}
           </button>
-          <button
-            onClick={() => decide("decline")}
-            disabled={disabled}
-            style={{
-              flex:1, padding:"16px 20px", background:"#fff", color:TOK.text,
-              border:"1px solid #e5e7eb", borderRadius:12, fontWeight:800, fontSize:16,
-              opacity: disabled ? .6 : 1, cursor: disabled ? "not-allowed" : "pointer"
-            }}
-          >
+          <button onClick={() => decide("decline")} disabled={disabled} style={{ flex: 1, padding: "16px 20px", background: "#fff", color: TOK.text, border: "1px solid #e5e7eb", borderRadius: 12, fontWeight: 800, fontSize: 16, opacity: disabled ? 0.6 : 1 }}>
             {deciding && !loading ? "…" : "Decline"}
           </button>
           {offer?.status === "accepted" && (
-            <button
-              onClick={completeCurrent}
-              style={{
-                flexBasis:"100%", padding:"12px 18px", background:"#111", color:"#fff",
-                border:"none", borderRadius:10, fontWeight:700, fontSize:15
-              }}
-            >
+            <button onClick={completeCurrent} style={{ flexBasis: "100%", padding: "12px 18px", background: "#111", color: "#fff", border: "none", borderRadius: 10, fontWeight: 700, fontSize: 15 }}>
               Complete ride (add to today)
             </button>
           )}
         </div>
 
-        {/* error */}
-        {error && <div style={{marginTop:8, color:TOK.danger, fontWeight:600}}>⚠ {String(error)}</div>}
+        {error && <div style={{ marginTop: 8, color: TOK.danger, fontWeight: 600 }}>⚠ {String(error)}</div>}
       </Card>
+
+      {toast && (
+        <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#111", color: "#fff", padding: "12px 24px", borderRadius: 999, fontWeight: 600 }}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

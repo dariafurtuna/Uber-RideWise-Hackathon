@@ -9,6 +9,7 @@ from ..rating.service import rate_ride
 
 router = APIRouter(prefix="/flow", tags=["flow"])
 _OFFERS = {}
+_DRIVER_STATS = {}  # Track accepted rides per driver (earnings, rides, avg rating)
 NL_AMS_LAT, NL_AMS_LON = 52.3702, 4.8952
 
 class DecisionIn(BaseModel):
@@ -19,6 +20,7 @@ class DecisionIn(BaseModel):
 def driver_decision(driver_id: str, body: DecisionIn):
     """
     Driver accepts or declines an offer.
+    Tracks accepted rides in _DRIVER_STATS for real-time aggregation.
     """
     offer = _OFFERS.get(body.offer_id)
     if not offer:
@@ -31,12 +33,30 @@ def driver_decision(driver_id: str, body: DecisionIn):
     if decision not in ("accept", "decline"):
         raise HTTPException(status_code=400, detail="invalid_decision")
     offer["status"] = "accepted" if decision == "accept" else "declined"
+
+    # Track accepted rides for real-time stats
+    if decision == "accept":
+        est_earning = round(uniform(8, 20), 2)  # simulate €8–€20 per ride
+        rider_rating = offer["candidate"]["rider_rating"]
+        stats = _DRIVER_STATS.setdefault(driver_id, {
+            "today_rides": 0,
+            "today_earnings": 0.0,
+            "ratings_sum": 0.0,
+        })
+        stats["today_rides"] += 1
+        stats["today_earnings"] += est_earning
+        stats["ratings_sum"] += rider_rating
+
     return {"offer_id": body.offer_id, "status": offer["status"]}
-    decision: str  # "accept" or "decline"
+# ...existing code...
+
+
+__all__ = ["router", "_DRIVER_STATS"]
+
 
 class CompleteIn(BaseModel):
     offer_id: str
-    net_earnings: float | None = None
+    net_eur: float | None = None
     duration_mins: float | None = None
 
 def jitter(base, deg=0.02):
@@ -94,7 +114,7 @@ def _db():
     return sqlite3.connect("db/uber_hackathon_v2.db")
 
 @router.post("/drivers/{driver_id}/complete")
-def driver_complete(driver_id: str, body):
+def driver_complete(driver_id: str, body: CompleteIn):
     """
     Mark an accepted offer as completed and bump today's live aggregates in DB.
     """
