@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function useWaterHook(intervalMs = 2 * 60 * 60 * 1000) {
+export function useWaterHook(intervalMs = 3000) { //2 * 60 * 60 * 1000
   const [visible, setVisible] = useState(false);
 
   // Retrieve last dismissal time from localStorage

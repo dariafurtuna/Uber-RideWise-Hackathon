@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export function useStretchHook(intervalMs = 2 * 60 * 60 * 1000) {
+export function useStretchHook(intervalMs = 3000) { //2 * 60 * 60 * 1000
   const [visible, setVisible] = useState(false);
   const [lastDismissed, setLastDismissed] = useState(null);
 

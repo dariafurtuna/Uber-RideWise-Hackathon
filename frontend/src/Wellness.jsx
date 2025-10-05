@@ -2,10 +2,27 @@ import "/styles/Wellness.css";
 import { useWaterHook } from "./hooks/waterHook";
 import { useStretchHook } from "./hooks/stretchHook";
 import StretchPopup from "./components/StretchPopup";
+import { useEffect } from "react";
 
 export default function Wellness() {
   const { visible: waterVisible, markAsDone: markWaterAsDone } = useWaterHook();
   const { visible: stretchVisible, markAsDone: markStretchAsDone } = useStretchHook();
+
+  useEffect(() => {
+    // Add class to ensure white background on wellness page
+    document.documentElement.classList.add('wellness-active');
+    document.body.classList.add('wellness-active');
+    const root = document.getElementById('root');
+    if (root) root.classList.add('wellness-active');
+    
+    return () => {
+      // Clean up when leaving the page
+      document.documentElement.classList.remove('wellness-active');
+      document.body.classList.remove('wellness-active');
+      const root = document.getElementById('root');
+      if (root) root.classList.remove('wellness-active');
+    };
+  }, []);
 
   return (
     <div className="page wellness-page">
@@ -43,17 +60,21 @@ export default function Wellness() {
       <section className="wide-section">
         <div className="card wide">
           <div className="icon">🌦️</div>
-          <h2>Weather Advisory</h2>
-          <p>
-            Light rain expected in 30 minutes. Drive carefully, increase
-            following distance, and plan shorter trips if needed.
-          </p>
-          <div className="button-row">
-            <button className="btn-blue-outline">View Forecast</button>
-            <button className="btn-blue-outline">Safety Tips</button>
+          <div className="content">
+            <h2>Weather Advisory</h2>
+            <p>
+              Light rain expected in 30 minutes. Drive carefully, increase
+              following distance, and plan shorter trips if needed.
+            </p>
+            <div className="button-row">
+              <button className="btn-blue-outline">View Forecast</button>
+              <button className="btn-blue-outline">Safety Tips</button>
+            </div>
           </div>
         </div>
       </section>
+
+      <button className="continue-driving">Continue Driving</button>
     </div>
   );
 }
