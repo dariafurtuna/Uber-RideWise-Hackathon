@@ -12,6 +12,45 @@ export default function DriveStats() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const WORK_KEY = "workSessionStartedAt";
+  const [sessionStartedAt, setSessionStartedAt] = useState(() => {
+  const raw = localStorage.getItem(WORK_KEY);
+  return raw ? Number(raw) : null;
+});
+const [nowTick, setNowTick] = useState(Date.now());
+
+  function formatHMS(ms) {
+    const secs = Math.max(0, Math.floor(ms / 1000));
+    const h = String(Math.floor(secs / 3600)).padStart(2, "0");
+    const m = String(Math.floor((secs % 3600) / 60)).padStart(2, "0");
+    const s = String(secs % 60).padStart(2, "0");
+    return `${h}:${m}:${s}`;
+} 
+  
+  useEffect(() => {
+    const onWorkSession = (e) => {
+      if (e.detail?.active) {
+        setSessionStartedAt(e.detail.startedAt);
+      } else {
+        setSessionStartedAt(null);
+      }
+    };
+    window.addEventListener("workSession", onWorkSession);
+
+    const t = setInterval(() => setNowTick(Date.now()), 1000); // 1s tick
+    return () => {
+      window.removeEventListener("workSession", onWorkSession);
+      clearInterval(t);
+    };
+  }, []);
+
+  const elapsedMs = sessionStartedAt ? Math.max(0, nowTick - sessionStartedAt) : 0;
+const elapsedHours = elapsedMs / 3_600_000;
+
+const earningsPerHour =
+  !loading && summary?.today_earnings != null && elapsedHours > 0
+    ? summary.today_earnings / elapsedHours
+    : null;
 
 
   useEffect(() => {
@@ -81,10 +120,43 @@ export default function DriveStats() {
         </section>
 
         <aside className="cards-grid">
-          <div className="kpi-card card-surface">
-            <div className="kpi-label">Potential income</div>
-            <div className="kpi-value">3 km</div>
-          </div>
+          <div className="kpi-card card-surface" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+  <div className="kpi-label">Time on shift</div>
+
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <div className="kpi-value">
+      {sessionStartedAt ? formatHMS(elapsedMs) : "—"}
+    </div>
+
+    {sessionStartedAt && (
+      <button
+        className="btn-secondary"
+        onClick={() => {
+          localStorage.removeItem("workSessionStartedAt");
+          window.dispatchEvent(new CustomEvent("workSession", { detail: { active: false } }));
+          navigate("/");
+        }}
+        style={{
+          marginLeft: "12px",
+          padding: "6px 10px",
+          borderRadius: "6px",
+          border: "none",
+          background: "#eee",
+          cursor: "pointer",
+          fontSize: "0.9rem",
+        }}
+      >
+        End Shift
+      </button>
+    )}
+  </div>
+
+  <div className="kpi-sub">
+    {sessionStartedAt ? "Since you pressed Start" : "Press Start on Home"}
+  </div>
+</div>
+
+
 
           <div className="kpi-card card-surface">
             <div className="kpi-label">Income Today</div>
@@ -97,8 +169,11 @@ export default function DriveStats() {
           </div>
 
           <div className="kpi-card card-surface">
-            <div className="kpi-label">Avg. Rider Rating</div>
-            <div className="kpi-value">{loading ? "Loading…" : summary?.avg_rating?.toFixed(2) ?? "—"}★</div>
+            <div className="kpi-label">Earnings / hour</div>
+              <div className="kpi-value">
+                {earningsPerHour != null ? formatEuro(earningsPerHour) : "—"}
+              </div>
+            <div className="kpi-sub">Based on today’s earnings</div>
           </div>
 
           <div className="kpi-card card-surface">

@@ -20,6 +20,23 @@ export default function LandingPage() {
   const [city, setCity] = useState(1);
   // Demo values for weather
   const weather = { icon: "🌥️", label: "Cloudy", desc: "Medium traffic expected" };
+  const WORK_KEY = "workSessionStartedAt"; // ms timestamp
+
+  const [working, setWorking] = useState(() => !!localStorage.getItem(WORK_KEY));
+
+function startWork() {
+  const t = Date.now();
+  localStorage.setItem(WORK_KEY, String(t));
+  setWorking(true);
+  window.dispatchEvent(new CustomEvent("workSession", { detail: { active: true, startedAt: t } }));
+}
+
+function stopWork() {
+  localStorage.removeItem(WORK_KEY);
+  setWorking(false);
+  window.dispatchEvent(new CustomEvent("workSession", { detail: { active: false } }));
+}
+
 
   useEffect(() => {
     async function loadData() {
@@ -112,7 +129,15 @@ export default function LandingPage() {
           </button>
         </div>
       </div>
-      <button className="lp-btn" onClick={() => navigate("/drive-stats")}>Start Work</button>
+      <button
+        className="lp-btn"
+        onClick={() => {
+          startWork();
+          navigate("/drive-stats");
+        }}
+      >
+        Start Work
+      </button>
     </div>
   );
 }
