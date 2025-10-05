@@ -6,11 +6,12 @@ import "/styles/DriveStats.css";
 
 export default function DriveStats() {
   const navigate = useNavigate();
-  const earnerId = "E10000";
+  const earnerId = "d42";
 
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
 
   useEffect(() => {
     let alive = true;
@@ -30,6 +31,25 @@ export default function DriveStats() {
     fetchSummary();
     const id = setInterval(fetchSummary, 20000);
     return () => { alive = false; clearInterval(id); };
+  }, [earnerId]);
+
+  // Listen for rideCompleted event to instantly refresh dashboard
+  useEffect(() => {
+    function handleRideCompleted() {
+      // Optimistic update
+      setSummary(prev => prev ? {
+        ...prev,
+        today_earnings: (prev.today_earnings ?? 0) + 5,
+        rides_completed: (prev.rides_completed ?? 0) + 1
+      } : prev);
+      // Fetch real data
+      fetch(`http://localhost:8000/earners/${earnerId}/today_summary`)
+        .then(r => r.json())
+        .then(setSummary)
+        .catch(console.error);
+    }
+    window.addEventListener("rideCompleted", handleRideCompleted);
+    return () => window.removeEventListener("rideCompleted", handleRideCompleted);
   }, [earnerId]);
 
   const formatEuro = (v) =>

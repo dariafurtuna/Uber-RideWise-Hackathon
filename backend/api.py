@@ -97,6 +97,7 @@ def today_summary(earner_id: str):
     Combined daily summary: earnings, rides completed, and average rating.
     """
     today_str = date.today().isoformat()
+    # Query historic daily table
     result = q("""
         SELECT 
             COALESCE(SUM(total_net_earnings), 0) AS today_earnings,
@@ -105,9 +106,39 @@ def today_summary(earner_id: str):
         FROM earnings_daily
         WHERE earner_id = ? AND date = ?;
     """, (earner_id, today_str))
-    if result:
-        return result[0]
-    return {"today_earnings": 0, "rides_completed": 0, "avg_rating": 0.0}
+    base = result[0] if result else {"today_earnings": 0, "rides_completed": 0, "avg_rating": 0.0}
+
+    # Query live aggregates for today
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS live_aggregates (
+                day TEXT NOT NULL,
+                earner_id TEXT NOT NULL,
+                earn_eur REAL NOT NULL DEFAULT 0,
+                minutes REAL NOT NULL DEFAULT 0,
+                rides INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (day, earner_id)
+            );
+        """)
+        row = conn.execute("""
+            SELECT COALESCE(earn_eur, 0) AS earn_eur, COALESCE(rides, 0) AS rides
+            FROM live_aggregates
+            WHERE day = ? AND earner_id = ?;
+        """, (today_str, earner_id)).fetchone()
+        live_earnings = float(row["earn_eur"] if row and row["earn_eur"] is not None else 0.0)
+        live_rides = int(row["rides"] if row and row["rides"] is not None else 0)
+    finally:
+        conn.close()
+
+    # Merge base and live aggregates
+    merged = {
+        "today_earnings": round(float(base["today_earnings"]) + live_earnings, 2),
+        "rides_completed": int(base["rides_completed"] or 0) + live_rides,
+        "avg_rating": float(base["avg_rating"] or 0.0)
+    }
+    return merged
 
 # Resolve DB path relative to the repo root (parent of this 'backend' folder)
 REPO_ROOT = Path(__file__).resolve().parents[1]
