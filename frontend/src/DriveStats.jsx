@@ -57,9 +57,8 @@ export default function DriveStats() {
 
         <aside className="cards-grid">
           <div className="card">
-            <h3>Nearest Hotspot</h3>
+            <h3>Potential income</h3>
             <p className="value">0.5 km</p>
-            <button className="btn btn-green">Drive</button>
           </div>
 
           <div className="card">

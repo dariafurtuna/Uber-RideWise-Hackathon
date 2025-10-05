@@ -73,7 +73,7 @@ export default function HeatmapView() {
 
   async function loadHeat() {
     try {
-      setStatus("Loading...");
+      
       const data = await fetchPredictedHeat({
         lat,
         lng,
@@ -116,8 +116,8 @@ export default function HeatmapView() {
   }, [lat, lng, radiusKm, weight]);
 
   return (
-    <div style={{ display: "grid", gridTemplateRows: "70px 1fr", height: "100%" }}>
-      <div style={{ background: "#111", color: "#fff", display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
+    <div style={{ borderRadius: "50px", display: "grid", gridTemplateRows: "70px 1fr", height: "100%" }}>
+      <div style={{ borderRadius: "17px", background: "#111", color: "#fff", display: "flex", alignItems: "center", gap: 10, padding: "8px 12px" }}>
         <strong style={{ marginRight: 10 }}>Heat Zones</strong>
 
         <span>Lat</span>
@@ -141,7 +141,7 @@ export default function HeatmapView() {
           step="0.5"
           value={radiusKm}
           onChange={(e) => setRadiusKm(parseFloat(e.target.value))}
-          style={{ width: 160 }}
+          style={{ borderRadius: "17px", appearance: "none", width: 160, background: "#ffffffff", cursor: "pointer", accentColor: "#000" }}
         />
         <span>{radiusKm.toFixed(1)}</span>
 
