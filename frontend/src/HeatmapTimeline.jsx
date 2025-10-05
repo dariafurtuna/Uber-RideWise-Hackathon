@@ -171,7 +171,6 @@ export default function HeatmapTimeline({
     );
     layerRef.current = L.layerGroup(polys).addTo(mapRef.current);
     markerRef.current.setZIndexOffset(1000);
-    setStatus(`Cells: ${payload.cells.length} — ${new Date(payload.when_local).toLocaleString()}`);
   }
 
   // -------- fetch & cache --------
@@ -237,20 +236,6 @@ export default function HeatmapTimeline({
       <div className="timeline-toolbar">
         <strong style={{ marginRight: 8 }}>Heatmap Timeline</strong>
 
-        <span>Lat</span>
-        <input
-          value={lat}
-          onChange={(e) => setLat(parseFloat(e.target.value || lat))}
-          className="tl-input"
-        />
-
-        <span>Lng</span>
-        <input
-          value={lng}
-          onChange={(e) => setLng(parseFloat(e.target.value || lng))}
-          className="tl-input"
-        />
-
         <span>Radius (km)</span>
         <input
           type="range"
@@ -277,12 +262,10 @@ export default function HeatmapTimeline({
         <button onClick={() => setPlaying((p) => !p)} className="tl-button">
           {playing ? "Pause" : "Play"}
         </button>
-
-        <span style={{ marginLeft: "auto", opacity: 0.9 }}>{status}</span>
       </div>
 
       {/* Timeline with axis */}
-      <div className="timeline-axis">
+      <div className="timeline-axis" style={{minHeight: 80}}>
         <div style={{ fontWeight: 600 }}>{currentLabel}</div>
 
         <div style={{ position: "relative" }}>
@@ -309,7 +292,7 @@ export default function HeatmapTimeline({
             step={1}
             value={idx}
             onChange={(e) => setIdx(parseInt(e.target.value, 10))}
-            style={{ width: "100%" }}
+            style={{ width: "100%", marginTop: "20px" }}
           />
         </div>
 
@@ -327,9 +310,6 @@ export default function HeatmapTimeline({
               setStart(roundToHalfHour(d));
             }}
           />
-          <span style={{ color: "#6b7280" }}>
-            step {stepMinutes}m · window {windowHours}h
-          </span>
         </div>
       </div>
 
