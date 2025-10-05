@@ -1,91 +1,152 @@
-// src/DriverRequest.jsx
-import { useEffect, useState } from "react";
 
+/*
+  DriverRequest.jsx — Minimal futurist Uber theme (v6)
+  - Smooth crossfade to NEXT request after timeout AND after manual decline
+  - Uses a single transitionToNext() helper with AbortController safety
+  - Keeps: bigger grade chip, short reasons (no 'vs', no 'x… surge'),
+           countdown above buttons, score circles, no suggestion/debug UI
+*/
+
+import { useEffect, useMemo, useRef, useState } from "react";
 import "/styles/App.css";
 
-// Uber-themed styles for driver page
-const uberDriverStyles = {
-  page: {
-    background: "#181818",
-    minHeight: "100vh",
-    color: "#fff",
-    fontFamily: "Uber Move, Arial, sans-serif",
-    padding: "32px 0",
-  },
-  section: {
-    maxWidth: 900,
-    margin: "0 auto",
-    background: "#222",
-    borderRadius: 16,
-    boxShadow: "0 4px 24px rgba(0,0,0,0.2)",
-    padding: 32,
-  },
-  card: {
-    background: "#232323",
-    border: "1px solid #333",
-    borderRadius: 12,
-    padding: 20,
-    color: "#fff",
-    marginBottom: 16,
-  },
-  button: {
-    background: "#1c1c1c",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "10px 24px",
-    fontWeight: 600,
-    fontSize: 16,
-    marginRight: 8,
-    cursor: "pointer",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-    transition: "background 0.2s",
-  },
-  buttonGreen: {
-    background: "#2ecc40",
-    color: "#fff",
-  },
-  buttonRed: {
-    background: "#ff5a5f",
-    color: "#fff",
-  },
-  buttonBlue: {
-    background: "#007aff",
-    color: "#fff",
-  },
+/* ─────────────────────────────  design tokens  ───────────────────────────── */
+const TOK = {
+  text: "#111111",
+  sub: "#6b7280",
+  line: "rgba(17,17,17,0.08)",
+  chipBg: "#f3f4f6",
+  black: "#000000",
+  danger: "#dc2626",
+  ok: "#16a34a",
+  neutral: "#6b7280",
+  radius: 16,
 };
 
+/* ─────────────────────────────  inline icons  ─────────────────────────────── */
+const Ico = {
+  Trend: (p = {}) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+      <path d="M3 17l6-6 4 4 7-7" /><path d="M20 8V4h-4" />
+    </svg>
+  ),
+  Clock: (p = {}) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+      <circle cx="12" cy="12" r="9" /><path d="M12 7v6l4 2" />
+    </svg>
+  ),
+  Pin: (p = {}) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+      <path d="M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" />
+    </svg>
+  ),
+  Traffic: (p = {}) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+      <path d="M7 21v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2" /><path d="M10 17l1-8h2l1 8M8 9l1-6h6l1 6" />
+    </svg>
+  ),
+  Star: (p = {}) => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+      <path d="M12 17.3L6.2 21l1.6-6.8L2 9.6l7-.6L12 2l3 7 7 .6-5.8 4.6L17.8 21z" />
+    </svg>
+  ),
+};
+
+/* ─────────────────────────────  helpers  ─────────────────────────────────── */
+const Card = ({ children, fading }) => (
+  <section style={{
+    maxWidth: 960, margin: "32px auto", background:"#fff", color: TOK.text,
+    borderRadius: TOK.radius, boxShadow:"0 8px 32px rgba(0,0,0,.06)", padding: 28,
+    opacity: fading ? 0 : 1, transition: "opacity 260ms ease"
+  }}>{children}</section>
+);
+
+const Hairline = ({mt=16, mb=16}) => (
+  <div style={{ height: 1, background: TOK.line, marginTop: mt, marginBottom: mb }} />
+);
+
+// Shorten reasons: remove "vs …", trailing bracketed pieces "(…)" or "[…]",
+// and remove "x… surge" tokens entirely.
+function shortReason(text) {
+  if (!text) return "";
+  let t = text.replace(/\s*vs\s+.*$/i, "");               // drop comparisons
+  t = t.replace(/\s*x\s*\d+(?:\.\d+)?\s*surge/ig, "");    // drop surge mention
+  t = t.replace(/\s*[\(\[].*?[\)\]]\s*$/g, "");           // drop trailing ()
+  return t.trim();
+}
+
+function gradeFromOverall(overall) {
+  if (overall == null) return { label: "—", bg: "#f3f4f6", fg: TOK.text };
+  if (overall >= 85) return { label: "Excellent", bg: "#171717", fg: "#ffffff" };
+  if (overall >= 70) return { label: "Good",      bg: "#232323", fg: "#ffffff" };
+  if (overall >= 55) return { label: "Fair",      bg: "#dcdcdc", fg: TOK.text   };
+  return               { label: "Poor",      bg: "#efefef", fg: TOK.text   };
+}
+
+// Circle darkness based on score (0–100)
+function circleStyles(val) {
+  const v = Math.max(0, Math.min(100, val || 0));
+  const light = 100 - v;
+  const bg = `hsl(0, 0%, ${light}%)`;
+  const fg = v > 60 ? "#fff" : TOK.text;
+  return { bg, fg };
+}
+
+/* ─────────────────────────────  component  ───────────────────────────────── */
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const DRIVER_ID = "d42"; // hardcoded for demo
+const DRIVER_ID = "d42";
 
 export default function DriverRequest() {
-  const [debug, setDebug] = useState(false);
-  const [offer, setOffer] = useState(null);       // full offer (from /flow)
-  const [secsLeft, setSecsLeft] = useState(0);    // countdown
+  const [offer, setOffer] = useState(null);
+  const [secsLeft, setSecsLeft] = useState(0);
   const [loading, setLoading] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const [error, setError] = useState(null);
+  const [fading, setFading] = useState(false);
+
+  const abortRef = useRef(null); // cancel in-flight fetches
+  const rating = offer?.rating;
+  const candidate = offer?.candidate;
+
+  async function fetchOffer() {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const r = await fetch(`${API}/flow/drivers/${DRIVER_ID}/next?debug=false`, { signal: controller.signal });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  }
 
   async function loadOffer() {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const r = await fetch(`${API}/flow/drivers/${DRIVER_ID}/next?debug=${debug}`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
+      const data = await fetchOffer();
       setOffer(data);
-  setSecsLeft(30); // always 30 seconds for new offers
+      setSecsLeft(data.ttl_seconds ?? 30);
     } catch (e) {
-      setError(e.message || String(e));
+      if (e.name !== "AbortError") setError(e.message || String(e));
     } finally {
       setLoading(false);
     }
   }
 
+  // Smooth transition helper: fade out → fetch next → swap → fade in
+  async function transitionToNext() {
+    setFading(true);
+    try {
+      const data = await fetchOffer();
+      setOffer(data);                // swap while faded
+      setSecsLeft(data.ttl_seconds ?? 30);
+    } catch (e) {
+      if (e.name !== "AbortError") setError(e.message || String(e));
+    } finally {
+      requestAnimationFrame(() => setTimeout(() => setFading(false), 20));
+    }
+  }
+
   async function decide(decision) {
     if (!offer) return;
-    setDeciding(true);
-    setError(null);
+    setDeciding(true); setError(null);
     try {
       const r = await fetch(`${API}/flow/drivers/${offer.driver_id}/decision`, {
         method: "POST",
@@ -94,10 +155,10 @@ export default function DriverRequest() {
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
-      setOffer((o) => (o ? { ...o, status: data.status } : o));
-      // If declined, immediately load a new offer
+      setOffer(o => (o ? { ...o, status: data.status } : o));
       if (decision === "decline") {
-        setTimeout(() => loadOffer(), 300); // slight delay for UX
+        // tiny delay so user sees "declined" change, then crossfade
+        setTimeout(() => transitionToNext(), 120);
       }
     } catch (e) {
       setError(e.message || String(e));
@@ -106,145 +167,185 @@ export default function DriverRequest() {
     }
   }
 
-  // initial load
-  useEffect(() => { loadOffer(); /* on mount */ }, []); // eslint-disable-line
+  // initial
+  useEffect(() => { loadOffer(); return () => abortRef.current?.abort(); }, []);
 
-  // countdown tick
+  // countdown
   useEffect(() => {
     if (!offer) return;
     if (secsLeft <= 0 || offer.status !== "pending") return;
-    const id = setInterval(() => setSecsLeft((s) => Math.max(0, s - 1)), 1000);
+    const id = setInterval(() => setSecsLeft(s => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [offer, secsLeft]);
 
-  const rating = offer?.rating;
-  const expired = !offer ? false : (secsLeft <= 0) || offer.status === "expired";
+  // timeout → smooth transition
+  useEffect(() => {
+    if (!offer) return;
+    if (offer.status === "pending" && secsLeft === 0) {
+      transitionToNext();
+    }
+  }, [offer, secsLeft]);
+
+  const grade = gradeFromOverall(rating?.overall);
+
+  const metrics = useMemo(() => ([
+    { key:"profitability", label:"Profitability", icon:<Ico.Trend/>,  value: Math.round(rating?.breakdown?.profitability ?? 0), reason: shortReason(rating?.reasons?.profitability) },
+    { key:"time",          label:"Time",          icon:<Ico.Clock/>,  value: Math.round(rating?.breakdown?.time ?? 0),          reason: shortReason(rating?.reasons?.time) },
+    { key:"pickup",        label:"Pickup",        icon:<Ico.Pin/>,    value: Math.round(rating?.breakdown?.pickup ?? 0),        reason: shortReason(rating?.reasons?.pickup) },
+    { key:"traffic",       label:"Traffic",       icon:<Ico.Traffic/>,value: Math.round(rating?.breakdown?.traffic ?? 0),       reason: shortReason(rating?.reasons?.traffic) },
+    { key:"customer",      label:"Customer",      icon:<Ico.Star/>,   value: Math.round(rating?.breakdown?.customer ?? 0),      reason: shortReason(rating?.reasons?.customer) },
+  ]), [rating]);
+
+  const expired = offer ? secsLeft <= 0 || offer.status === "expired" : false;
   const disabled = loading || deciding || expired || (offer?.status !== "pending");
 
-  // Progress bar for Accept button
-  const progress = offer && offer.status === "pending" ? Math.max(0, secsLeft) / 30 : 0;
+  const progress = offer && offer.status === "pending"
+    ? Math.max(0, secsLeft) / (offer.ttl_seconds ?? 30)
+    : 0;
+
+  const Summary = ({label, value}) => (
+    <div style={{textAlign:"center"}}>
+      <div style={{fontSize:20, fontWeight:700}}>{value}</div>
+      <div style={{fontSize:13, color:TOK.sub}}>{label}</div>
+    </div>
+  );
 
   return (
-    <div style={uberDriverStyles.page}>
-      <section style={uberDriverStyles.section}>
-        <h2 style={{ fontWeight: 700, fontSize: 32, marginBottom: 8 }}>Uber Driver – Incoming Ride</h2>
-        <div className="sub" style={{ color: "#bbb", marginBottom: 24 }}>
-          Server generates a simulated request via <code>GET /flow/drivers/:id/next</code>.
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-          {/* Left: offer + rating */}
-          <div style={uberDriverStyles.card}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <div>
-                <div style={{ fontSize: 36, fontWeight: 700, color: "#2ecc40" }}>
-                  {rating ? Math.round(rating.overall) : "—"}
-                </div>
-                <div className="sub" style={{ color: "#bbb" }}>overall score</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontWeight: 600 }}>{rating?.label || "…"}</div>
-                <div style={{ display: "inline-block", padding: "2px 8px", borderRadius: 999, background: "#333", fontSize: 12, color: "#fff" }}>
-                  {rating?.decision || "…"}
-                </div>
-              </div>
+    <div style={{background:"#f8f9fa", minHeight:"100vh"}}>
+      <Card fading={fading}>
+        {/* top: score + grade */}
+        <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start"}}>
+          <div>
+            <div style={{fontSize:72, fontWeight:800, lineHeight:1, letterSpacing:"-0.5px"}}>
+              {rating ? Math.round(rating.overall) : "—"}
             </div>
-
-            <ul className="compact" style={{ marginTop: 10, color: "#fff" }}>
-              <li>Profitability: {rating ? Math.round(rating.breakdown?.profitability ?? 0) : "…"}</li>
-              <li>Time:          {rating ? Math.round(rating.breakdown?.time ?? 0) : "…"}</li>
-              <li>Pickup:        {rating ? Math.round(rating.breakdown?.pickup ?? 0) : "…"}</li>
-              <li>Traffic:       {rating ? Math.round(rating.breakdown?.traffic ?? 0) : "…"}</li>
-              <li>Customer:      {rating ? Math.round(rating.breakdown?.customer ?? 0) : "…"}</li>
-            </ul>
-
-            <div className="sub" style={{ marginTop: 8, color: "#bbb" }}>
-              <div>• {rating?.reasons?.profitability}</div>
-              <div>• {rating?.reasons?.time}</div>
-              <div>• {rating?.reasons?.pickup}</div>
-              <div>• {rating?.reasons?.traffic}</div>
-              <div>• {rating?.reasons?.customer}</div>
-            </div>
-
-            <div className="sub" style={{ marginTop: 10, color: "#bbb" }}>
-              Offer: <b style={{ color: "#fff" }}>{offer?.offer_id || "…"}</b> • Status: <b style={{ color: "#fff" }}>{offer?.status || "…"}</b> •
-              {" "}Expires in: <b style={{ color: "#2ecc40" }}>{Math.max(0, secsLeft)}s</b>
-            </div>
-
-            {error && <div className="error" style={{ marginTop: 8, color: "#ff5a5f" }}>⚠️ {String(error)}</div>}
-
-            <div style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center" }}>
-              <label style={{ display: "flex", gap: 6, alignItems: "center", color: "#bbb" }}>
-                <input type="checkbox" checked={debug} onChange={(e) => setDebug(e.target.checked)} />
-                <span>debug anchors</span>
-              </label>
-              <button
-                style={{
-                  ...uberDriverStyles.button,
-                  ...uberDriverStyles.buttonGreen,
-                  position: "relative",
-                  overflow: "hidden",
-                  width: 160,
-                  height: 48,
-                  padding: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 18,
-                  fontWeight: 700,
-                  letterSpacing: 1,
-                  boxShadow: "0 2px 8px rgba(44,204,64,0.15)",
-                }}
-                onClick={() => decide("accept")}
-                disabled={disabled}
-              >
-                <span style={{ zIndex: 2, width: "100%", textAlign: "center" }}>
-                  {deciding ? "…" : "Accept"}
-                </span>
-                {/* Sliding timer bar */}
-                <span
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    height: "100%",
-                    width: `${progress * 100}%`,
-                    background: "rgba(0,0,0,0.15)",
-                    transition: "width 1s linear",
-                    zIndex: 1,
-                  }}
-                />
-                <span
-                  style={{
-                    position: "absolute",
-                    right: 12,
-                    top: 12,
-                    fontSize: 14,
-                    color: "#fff",
-                    zIndex: 3,
-                    opacity: 0.8,
-                  }}
-                >
-                  {secsLeft}s
-                </span>
-              </button>
-              <button style={{ ...uberDriverStyles.button, ...uberDriverStyles.buttonRed }} onClick={() => decide("decline")} disabled={disabled}>
-                {deciding ? "…" : "Decline"}
-              </button>
-            </div>
-
-            {debug && rating?.anchors_used && Object.keys(rating.anchors_used).length > 0 && (
-              <pre className="debug" style={{ marginTop: 10, background: "#181818", color: "#2ecc40", padding: 8, borderRadius: 8 }}>{JSON.stringify(rating.anchors_used, null, 2)}</pre>
-            )}
+            <div style={{fontSize:14, color:TOK.sub, marginTop:4}}>Overall score</div>
           </div>
-
-          {/* Right: candidate preview */}
-          <div style={uberDriverStyles.card}>
-            <div className="sub" style={{ color: "#bbb" }}>Candidate (from server)</div>
-            <pre className="debug" style={{ background: "#181818", color: "#fff", padding: 8, borderRadius: 8 }}>{JSON.stringify(offer?.candidate || {}, null, 2)}</pre>
+          <div style={{textAlign:"right"}}>
+            <div
+              style={{
+                display:"inline-block",
+                padding:"10px 16px",
+                borderRadius:999,
+                background: grade.bg,
+                color: grade.fg,
+                fontWeight:900,
+                minWidth:132,
+                textAlign:"center",
+                fontSize:18,
+              }}
+            >
+              {grade.label}
+            </div>
           </div>
         </div>
-      </section>
+
+        <Hairline mt={20} mb={20} />
+
+        {/* summary row */}
+        <div style={{display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:18}}>
+          <Summary label="Distance" value={
+            candidate?.est_distance_km != null ? `${candidate.est_distance_km} km` : "—"
+          }/>
+          <Summary label="Duration" value={
+            candidate?.est_duration_mins != null ? `${candidate.est_duration_mins} min` : "—"
+          }/>
+          <Summary label="Estimate" value={
+            (rating?.reasons?.profitability?.match(/€[\d.,]+/)?.[0]) ?? "—"
+          }/>
+          <Summary label="Rider" value={
+            candidate?.rider_rating != null ? `${candidate.rider_rating.toFixed(2)}★` : "—"
+          }/>
+          <Summary label="Surge" value={
+            (rating?.reasons?.profitability?.match(/x[\d.]+/)?.[0]) ?? "—"
+          }/>
+        </div>
+
+        <Hairline />
+
+        {/* metrics grid with score circles */}
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"18px 28px"}}>
+          {metrics.map((m) => {
+            const { bg, fg } = circleStyles(m.value);
+            return (
+              <div key={m.key}>
+                <div style={{display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+                  <div style={{display:"flex", alignItems:"center", gap:10}}>
+                    <span>{m.icon}</span>
+                    <span style={{fontWeight:600}}>{m.label}</span>
+                  </div>
+                  <div style={{
+                    minWidth:40, height:40, borderRadius:"50%",
+                    background:bg, color:fg, display:"flex",
+                    alignItems:"center", justifyContent:"center",
+                    fontWeight:800
+                  }}>
+                    {m.value || 0}
+                  </div>
+                </div>
+                {m.reason && (
+                  <div style={{marginLeft:28, marginTop:6, color:TOK.sub, fontSize:14}}>
+                    {m.reason}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* status strip */}
+        <div style={{
+          background:TOK.chipBg, borderRadius:12, padding:"12px 14px",
+          fontSize:14, color:"#374151", marginTop:24
+        }}>
+          <span>Offer: <b>{offer?.offer_id || "…"}</b></span>
+          <span style={{margin:"0 8px"}}>•</span>
+          <span>Status: <b style={{color:
+            offer?.status==="accepted" ? TOK.ok :
+            offer?.status==="declined" ? TOK.neutral :
+            offer?.status==="expired" ? TOK.danger : TOK.text
+          }}>{offer?.status || "…"}</b></span>
+          <span style={{margin:"0 8px"}}>•</span>
+          <span>Expires in: <b>{Math.max(0, secsLeft)}s</b></span>
+        </div>
+
+        {/* countdown bar ABOVE actions */}
+        <div style={{ height:6, background:TOK.line, borderRadius:999, marginTop:14, overflow:"hidden" }}>
+          <div style={{
+            height:"100%", width:`${progress*100}%`, background:TOK.black,
+            transition:"width 1s linear"
+          }}/>
+        </div>
+
+        {/* actions */}
+        <div style={{display:"flex", gap:16, marginTop:12}}>
+          <button
+            onClick={() => decide("accept")}
+            disabled={disabled}
+            style={{
+              flex:1, padding:"16px 20px", background:TOK.black, color:"#fff",
+              border:"none", borderRadius:12, fontWeight:800, fontSize:16,
+              opacity: disabled ? .6 : 1, cursor: disabled ? "not-allowed" : "pointer"
+            }}
+          >
+            {deciding && !loading ? "…" : "Accept"}
+          </button>
+          <button
+            onClick={() => decide("decline")}
+            disabled={disabled}
+            style={{
+              flex:1, padding:"16px 20px", background:"#fff", color:TOK.text,
+              border:"1px solid #e5e7eb", borderRadius:12, fontWeight:800, fontSize:16,
+              opacity: disabled ? .6 : 1, cursor: disabled ? "not-allowed" : "pointer"
+            }}
+          >
+            {deciding && !loading ? "…" : "Decline"}
+          </button>
+        </div>
+
+        {/* error */}
+        {error && <div style={{marginTop:8, color:TOK.danger, fontWeight:600}}>⚠ {String(error)}</div>}
+      </Card>
     </div>
   );
 }
