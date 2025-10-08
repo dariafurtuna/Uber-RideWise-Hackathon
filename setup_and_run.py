@@ -17,7 +17,13 @@ MARKER = ROOT / ".setup_complete"
 
 def run(cmd, cwd=None, shell=True):
     print(f"\n>>> Running: {cmd}")
-    subprocess.run(cmd, cwd=cwd, shell=shell, check=True)
+    try:
+        subprocess.run(cmd, cwd=cwd, shell=shell, check=True)
+    except subprocess.CalledProcessError as e:
+        if MARKER.exists():
+            MARKER.unlink()
+        print(f"❌ Setup failed during: {e.cmd}")
+        sys.exit(1)
 
 def ensure_venv():
     """Create venv if missing or corrupted"""
@@ -103,19 +109,30 @@ def full_setup():
 if __name__ == "__main__":
     rebuild = "--rebuild" in sys.argv
 
-    if rebuild:
-        print("♻️  Rebuilding environment...")
-        if MARKER.exists():
-            MARKER.unlink()
-        if VENV.exists():
-            shutil.rmtree(VENV)
-        if DB_PATH.exists():
-            DB_PATH.unlink()
-        full_setup()
-    elif not MARKER.exists():
-        print("🚀 Performing full first-time setup...")
+    # Detect missing setup elements
+    missing_venv = not (VENV.exists() and (
+        (VENV / "Scripts" / "python.exe").exists() or (VENV / "bin" / "python").exists()
+    ))
+    missing_node_modules = not (FRONTEND / "node_modules").exists()
+    missing_db = not DB_PATH.exists()
+    missing_marker = not MARKER.exists()
+
+    setup_needed = rebuild or missing_venv or missing_node_modules or missing_db or missing_marker
+
+    if setup_needed:
+        if rebuild:
+            print("♻️  Rebuilding environment...")
+            if VENV.exists():
+                shutil.rmtree(VENV)
+            if DB_PATH.exists():
+                DB_PATH.unlink()
+            if MARKER.exists():
+                MARKER.unlink()
+        else:
+            print("🚀 Detected incomplete setup — starting initial configuration...")
+
         full_setup()
     else:
-        print("✅ Setup already complete — skipping setup steps.")
+        print("✅ Environment already configured — skipping setup.")
 
     run_both()
