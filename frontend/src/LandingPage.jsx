@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { getForecast } from "./api";
+import { ScheduleBuilderSheet } from "./components/ScheduleBuilderSheet";
 import "/styles/LandingPage.css";
 
 
@@ -23,6 +24,10 @@ export default function LandingPage() {
   const WORK_KEY = "workSessionStartedAt"; // ms timestamp
 
   const [working, setWorking] = useState(() => !!localStorage.getItem(WORK_KEY));
+  
+  // Schedule builder state
+  const [scheduleSheetOpen, setScheduleSheetOpen] = useState(false);
+  const [schedulePlan, setSchedulePlan] = useState(null);
 
 function startWork() {
   const t = Date.now();
@@ -35,6 +40,65 @@ function stopWork() {
   localStorage.removeItem(WORK_KEY);
   setWorking(false);
   window.dispatchEvent(new CustomEvent("workSession", { detail: { active: false } }));
+}
+
+// Schedule builder functions
+function handleGeneratePlan() {
+  // Mock plan generation - in real app this would call an API
+  const today = new Date().toISOString().split('T')[0];
+  const mockPlan = {
+    day: today,
+    blocks: [
+      {
+        type: "drive",
+        start: "16:00",
+        end: "18:00",
+        reason: "dinner pre-peak",
+        est_eph: 24.5
+      },
+      {
+        type: "break",
+        start: "18:00",
+        end: "18:15",
+        nearby: [
+          { name: "Cafe Azul", dist_km: 0.6 },
+          { name: "P+R Centrum", dist_km: 0.9 }
+        ]
+      },
+      {
+        type: "drive",
+        start: "18:15",
+        end: "21:00",  
+        reason: "dinner peak",
+        est_eph: 29.1
+      }
+    ]
+  };
+  setSchedulePlan(mockPlan);
+}
+
+function handleAcceptPlan(plan) {
+  console.log("Accepted plan:", plan);
+  // Here you would save the plan and potentially start work
+  setScheduleSheetOpen(false);
+}
+
+function handleEditBlock(index, updates) {
+  if (!schedulePlan) return;
+  const newBlocks = [...schedulePlan.blocks];
+  newBlocks[index] = { ...newBlocks[index], ...updates };
+  setSchedulePlan({ ...schedulePlan, blocks: newBlocks });
+}
+
+function handleRemoveBlock(index) {
+  if (!schedulePlan) return;
+  const newBlocks = schedulePlan.blocks.filter((_, i) => i !== index);
+  setSchedulePlan({ ...schedulePlan, blocks: newBlocks });
+}
+
+function handleClearSchedule() {
+  setSchedulePlan(null);
+  console.log("Schedule cleared");
 }
 
 
@@ -138,6 +202,34 @@ function stopWork() {
       >
         Start Work
       </button>
+      
+      <button
+        className="lp-btn lp-btn-schedule"
+        onClick={() => {
+          handleGeneratePlan();
+          setScheduleSheetOpen(true);
+        }}
+      >
+        Build My Smart Schedule
+      </button>
+      
+      <button
+        className="lp-btn lp-btn-clear"
+        onClick={handleClearSchedule}
+      >
+        Clear Schedule
+      </button>
+      
+      <ScheduleBuilderSheet
+        open={scheduleSheetOpen}
+        onOpenChange={setScheduleSheetOpen}
+        plan={schedulePlan}
+        onAccept={handleAcceptPlan}
+        onEdit={handleEditBlock}
+        onRemove={handleRemoveBlock}
+        onDismiss={() => setScheduleSheetOpen(false)}
+        onGeneratePlan={handleGeneratePlan}
+      />
     </div>
   );
 }
