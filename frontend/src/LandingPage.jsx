@@ -28,6 +28,8 @@ export default function LandingPage() {
   // Schedule builder state
   const [scheduleSheetOpen, setScheduleSheetOpen] = useState(false);
   const [schedulePlan, setSchedulePlan] = useState(null);
+  const [acceptedSchedule, setAcceptedSchedule] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
 function startWork() {
   const t = Date.now();
@@ -68,7 +70,7 @@ function handleGeneratePlan() {
       {
         type: "drive",
         start: "18:15",
-        end: "21:00",  
+        end: "20:10",  
         reason: "dinner peak",
         est_eph: 29.1
       }
@@ -79,26 +81,36 @@ function handleGeneratePlan() {
 
 function handleAcceptPlan(plan) {
   console.log("Accepted plan:", plan);
-  // Here you would save the plan and potentially start work
+  // Update the main schedule plan with the accepted changes
+  setSchedulePlan(plan);
+  setAcceptedSchedule(plan);
+  setHasUnsavedChanges(false);
   setScheduleSheetOpen(false);
 }
 
 function handleEditBlock(index, updates) {
-  if (!schedulePlan) return;
-  const newBlocks = [...schedulePlan.blocks];
-  newBlocks[index] = { ...newBlocks[index], ...updates };
-  setSchedulePlan({ ...schedulePlan, blocks: newBlocks });
+  // This function is no longer used since all edits are handled within the working copy
+  // in ScheduleBuilderSheet. Edits are only committed when the user accepts/saves.
+  console.log("Edit block called (should not be used):", index, updates);
 }
 
 function handleRemoveBlock(index) {
   if (!schedulePlan) return;
   const newBlocks = schedulePlan.blocks.filter((_, i) => i !== index);
   setSchedulePlan({ ...schedulePlan, blocks: newBlocks });
+  
+  // Mark as having unsaved changes if there's an accepted schedule
+  if (acceptedSchedule) {
+    setHasUnsavedChanges(true);
+  }
 }
 
-function handleClearSchedule() {
+function handleDeleteSchedule() {
+  setAcceptedSchedule(null);
   setSchedulePlan(null);
-  console.log("Schedule cleared");
+  setHasUnsavedChanges(false);
+  setScheduleSheetOpen(false);
+  console.log("Schedule deleted");
 }
 
 
@@ -129,14 +141,39 @@ function handleClearSchedule() {
 
   return (
     <div className="lp-root">
+      {/* Header Bar */}
+      <div className="lp-header">
+        <div className="lp-header-content">
+          <span className="lp-uber-logo">Uber</span>
+          {acceptedSchedule ? (
+            <div className="lp-schedule-status">
+              <span className="lp-schedule-indicator">●</span>
+              <div className="lp-schedule-details">
+                <span className="lp-schedule-text">Schedule Active</span>
+                <span className="lp-schedule-info">
+                  {acceptedSchedule.blocks[0]?.start}–{acceptedSchedule.blocks[acceptedSchedule.blocks.length - 1]?.end} • {acceptedSchedule.blocks.length} blocks
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="lp-schedule-status">
+              <span className="lp-schedule-indicator lp-schedule-indicator-inactive">●</span>
+              <div className="lp-schedule-details">
+                <span className="lp-schedule-text">No Active Schedule</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
       <h1 className="lp-main-title" style={{
         textAlign: 'center',
         fontWeight: 800,
         fontSize: '2.4rem',
-        margin: '0 0 32px 0',
+        margin: '24px 0 32px 0',
         letterSpacing: '0.01em',
         color: '#181818'
-      }}>Smart Earner Assistant</h1>
+      }}>RideWise Assistant</h1>
       {/* Day navigation moved under the histogram */}
       <div className="lp-row">
         <div className="lp-card lp-weather">
@@ -206,18 +243,14 @@ function handleClearSchedule() {
       <button
         className="lp-btn lp-btn-schedule"
         onClick={() => {
-          handleGeneratePlan();
+          // Only generate a new plan if one doesn't already exist
+          if (!schedulePlan) {
+            handleGeneratePlan();
+          }
           setScheduleSheetOpen(true);
         }}
       >
-        Build My Smart Schedule
-      </button>
-      
-      <button
-        className="lp-btn lp-btn-clear"
-        onClick={handleClearSchedule}
-      >
-        Clear Schedule
+        {acceptedSchedule ? "My Smart Schedule" : "Build My Smart Schedule"}
       </button>
       
       <ScheduleBuilderSheet
@@ -228,7 +261,10 @@ function handleClearSchedule() {
         onEdit={handleEditBlock}
         onRemove={handleRemoveBlock}
         onDismiss={() => setScheduleSheetOpen(false)}
+        onDeleteSchedule={handleDeleteSchedule}
         onGeneratePlan={handleGeneratePlan}
+        hasAcceptedSchedule={!!acceptedSchedule}
+        hasUnsavedChanges={hasUnsavedChanges}
       />
     </div>
   );

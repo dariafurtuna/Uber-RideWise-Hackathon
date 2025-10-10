@@ -64,7 +64,7 @@ function generateMockPlan() {
       {
         type: "drive",
         start: "18:15",
-        end: "21:00",
+        end: "20:10",
         reason: "dinner peak",
         est_eph: 29.1
       }
@@ -81,14 +81,19 @@ export function ScheduleBuilderSheet({
   onAddBreak,
   onRemove,
   onDismiss,
+  onDeleteSchedule,
   onGeneratePlan,
+  hasAcceptedSchedule = false,
+  hasUnsavedChanges = false,
 }) {
   const [editingIndex, setEditingIndex] = useState(null);
   const [editStart, setEditStart] = useState("");
   const [editEnd, setEditEnd] = useState("");
+  const [editError, setEditError] = useState("");
   const [validationErrors, setValidationErrors] = useState({});
   const [reflowedBlocks, setReflowedBlocks] = useState(new Set());
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [workingPlan, setWorkingPlan] = useState(null); // Temporary copy for edits
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -98,9 +103,17 @@ export function ScheduleBuilderSheet({
     return () => clearInterval(interval);
   }, []);
 
+  // Initialize working plan when the sheet opens or plan changes
+  useEffect(() => {
+    if (open && plan) {
+      setWorkingPlan(JSON.parse(JSON.stringify(plan))); // Deep copy
+      setReflowedBlocks(new Set()); // Reset reflow indicators
+    }
+  }, [open, plan]);
+
   const isBlockCurrent = useCallback(
     (block) => {
-      if (!plan) return false;
+      if (!workingPlan) return false;
 
       const now = currentTime.getHours() * 60 + currentTime.getMinutes();
       const blockStart = parseTime(block.start);
@@ -110,7 +123,7 @@ export function ScheduleBuilderSheet({
         return true;
       }
 
-      const allBlockStarts = plan.blocks.map((b) => parseTime(b.start));
+      const allBlockStarts = workingPlan.blocks.map((b) => parseTime(b.start));
       const earliestStart = Math.min(...allBlockStarts);
 
       if (now < earliestStart && blockStart === earliestStart) {
@@ -119,42 +132,25 @@ export function ScheduleBuilderSheet({
 
       return false;
     },
-    [currentTime, plan],
+    [currentTime, workingPlan],
   );
 
-  // Validate blocks
+  // Validate blocks - only structural issues that shouldn't happen with proper editing/generation
   const validateBlocks = useCallback((blocks) => {
     const errors = {};
 
     blocks.forEach((block, index) => {
-      if (block.type === "drive") {
-        const duration = getDuration(block.start, block.end);
-        if (duration > 120) {
-          errors[index] = "Drive blocks cannot exceed 120 minutes";
-        }
-
-        // Check if next block is a break if this drive is at limit
-        if (duration >= 120 && index < blocks.length - 1) {
-          const nextBlock = blocks[index + 1];
-          if (nextBlock.type !== "break") {
-            errors[index] = "Drive blocks ≥120 min must be followed by a break";
-          }
-        }
-      }
-
-      if (block.type === "break") {
-        const duration = getDuration(block.start, block.end);
-        if (duration < 10 || duration > 30) {
-          errors[index] = "Break duration must be 10-30 minutes";
-        }
-      }
-
-      // Check for overlaps
+      // Check for overlaps (this should never happen with proper data)
       if (index < blocks.length - 1) {
         const nextBlock = blocks[index + 1];
         if (parseTime(block.end) > parseTime(nextBlock.start)) {
           errors[index] = "Blocks cannot overlap";
         }
+      }
+
+      // Check for missing or invalid time data (this should never happen with proper data)
+      if (!block.start || !block.end) {
+        errors[index] = "Invalid time data";
       }
     });
 
@@ -163,70 +159,192 @@ export function ScheduleBuilderSheet({
   }, []);
 
   useEffect(() => {
-    if (plan?.blocks) {
-      validateBlocks(plan.blocks);
+    if (workingPlan?.blocks) {
+      validateBlocks(workingPlan.blocks);
     }
-  }, [plan, validateBlocks]);
+  }, [workingPlan, validateBlocks]);
+
+  const validateTimeInterval = (startTime, endTime, blockType = "drive") => {
+    if (!startTime || !endTime) return "";
+    
+    const startMinutes = parseTime(startTime);
+    const endMinutes = parseTime(endTime);
+    
+    // Check if end time is before start time (invalid)
+    if (endMinutes <= startMinutes) {
+      return "End time must be after start time";
+    }
+    
+    // Calculate duration
+    const duration = endMinutes - startMinutes;
+    
+    // Additional validation for drive blocks
+    if (blockType === "drive") {
+      if (duration > 120) {
+        return "Drive blocks cannot exceed 120 minutes";
+      }
+    }
+    
+    // Additional validation for break blocks
+    if (blockType === "break") {
+      if (duration < 10) {
+        return "Break duration must be at least 10 minutes";
+      }
+    }
+    
+    return "";
+  };
 
   const handleEditStart = (index, block) => {
     setEditingIndex(index);
     setEditStart(block.start);
     setEditEnd(block.end);
+    setEditError(""); // Clear any previous edit errors
+    
+    // Run initial validation in case the current values are already invalid
+    const initialError = validateTimeInterval(block.start, block.end, block.type);
+    if (initialError) {
+      setEditError(initialError);
+    }
   };
 
+  const handleStartTimeChange = (newStart) => {
+    setEditStart(newStart);
+    if (editingIndex !== null && workingPlan) {
+      const block = workingPlan.blocks[editingIndex];
+      const intervalError = validateTimeInterval(newStart, editEnd, block.type);
+      setEditError(intervalError);
+    }
+  };
+
+  const handleEndTimeChange = (newEnd) => {
+    setEditEnd(newEnd);
+    if (editingIndex !== null && workingPlan) {
+      const block = workingPlan.blocks[editingIndex];
+      const intervalError = validateTimeInterval(editStart, newEnd, block.type);
+      setEditError(intervalError);
+    }
+  };
+
+  const adjustBreakDurations = useCallback((blocks, changedIndex) => {
+    const adjustedBlocks = [...blocks];
+    
+    // Adjust break after the changed drive block
+    if (changedIndex < adjustedBlocks.length - 1) {
+      const nextBlock = adjustedBlocks[changedIndex + 1];
+      if (nextBlock.type === "break") {
+        nextBlock.start = adjustedBlocks[changedIndex].end;
+        
+        // If there's a block after the break, adjust break end
+        if (changedIndex + 2 < adjustedBlocks.length) {
+          const blockAfterBreak = adjustedBlocks[changedIndex + 2];
+          const availableTime = parseTime(blockAfterBreak.start) - parseTime(nextBlock.start);
+          
+          // Ensure minimum 10 minutes for break
+          if (availableTime >= 10) {
+            nextBlock.end = blockAfterBreak.start;
+          } else {
+            // If not enough space, adjust the next drive block start time
+            const newStartTime = parseTime(nextBlock.start) + 10;
+            blockAfterBreak.start = formatTime(newStartTime);
+            nextBlock.end = formatTime(newStartTime);
+          }
+        }
+      }
+    }
+    
+    // Adjust break before the changed drive block
+    if (changedIndex > 0) {
+      const prevBlock = adjustedBlocks[changedIndex - 1];
+      if (prevBlock.type === "break") {
+        prevBlock.end = adjustedBlocks[changedIndex].start;
+        
+        // Ensure minimum duration
+        const breakDuration = getDuration(prevBlock.start, prevBlock.end);
+        if (breakDuration < 10) {
+          const newStartTime = parseTime(prevBlock.end) - 10;
+          prevBlock.start = formatTime(newStartTime);
+          
+          // Adjust previous drive block if needed
+          if (changedIndex - 2 >= 0) {
+            adjustedBlocks[changedIndex - 2].end = prevBlock.start;
+          }
+        }
+      }
+    }
+    
+    return adjustedBlocks;
+  }, []);
+
   const handleEditSave = () => {
-    if (editingIndex === null || !plan) return;
+    if (editingIndex === null || !workingPlan) return;
 
-    const duration = getDuration(editStart, editEnd);
-    const block = plan.blocks[editingIndex];
-
-    // Validate duration constraints
-    if (block.type === "drive" && duration > 120) {
-      alert("Drive blocks cannot exceed 120 minutes");
+    const block = workingPlan.blocks[editingIndex];
+    
+    // Check for all validation errors using the same function
+    const validationError = validateTimeInterval(editStart, editEnd, block.type);
+    if (validationError) {
+      setEditError(validationError);
       return;
     }
 
-    if (block.type === "break" && (duration < 10 || duration > 30)) {
-      alert("Break duration must be 10-30 minutes");
-      return;
-    }
+    // Update the block in working plan only
+    const updatedBlocks = [...workingPlan.blocks];
+    updatedBlocks[editingIndex] = { ...updatedBlocks[editingIndex], start: editStart, end: editEnd };
+    
+    // Auto-adjust break durations if we edited a drive block
+    const finalBlocks = block.type === "drive" 
+      ? adjustBreakDurations(updatedBlocks, editingIndex)
+      : updatedBlocks;
 
-    onEdit?.(editingIndex, { start: editStart, end: editEnd });
+    // Update the working plan (not the original plan)
+    setWorkingPlan({ ...workingPlan, blocks: finalBlocks });
     setEditingIndex(null);
+    setEditError(""); // Clear edit error on successful save
 
     // Check if reflow is needed
     const newReflowed = new Set(reflowedBlocks);
-    if (editingIndex < plan.blocks.length - 1) {
+    if (editingIndex < workingPlan.blocks.length - 1) {
       newReflowed.add(editingIndex + 1);
     }
     setReflowedBlocks(newReflowed);
   };
 
   const handleClose = () => {
+    // Reset working plan to discard any unsaved changes
+    if (plan) {
+      setWorkingPlan(JSON.parse(JSON.stringify(plan)));
+    }
+    setEditingIndex(null);
+    setEditError("");
+    setReflowedBlocks(new Set());
     onDismiss?.();
     onOpenChange(false);
   };
 
   const handleAccept = () => {
-    if (!plan) return;
-    const isValid = validateBlocks(plan.blocks);
+    if (!workingPlan) return;
+    const isValid = validateBlocks(workingPlan.blocks);
     if (!isValid) {
       alert("Please fix validation errors before accepting");
       return;
     }
-    onAccept?.(plan);
+    onAccept?.(workingPlan);
     onOpenChange(false);
   };
 
   if (!open) return null;
 
-  if (!plan) {
+  if (!workingPlan) {
     return null; // Don't show anything if no plan - this shouldn't happen now
   }
 
-  const weekday = getWeekday(plan.day);
-  const firstBlockStart = plan.blocks[0]?.start || "00:00";
+  const weekday = getWeekday(workingPlan.day);
+  const firstBlockStart = workingPlan.blocks[0]?.start || "00:00";
   const hasErrors = Object.keys(validationErrors).length > 0;
+  
+  // Check if working plan differs from original plan
+  const hasLocalChanges = plan && JSON.stringify(workingPlan.blocks) !== JSON.stringify(plan.blocks);
 
   return (
     <div className="schedule-sheet-overlay">
@@ -251,7 +369,7 @@ export function ScheduleBuilderSheet({
         {/* Plan Summary Pills */}
         <div className="schedule-pills">
           <div className="pills-container">
-            {plan.blocks.map((block, index) => {
+            {workingPlan.blocks.map((block, index) => {
               const isCurrent = isBlockCurrent(block);
               return (
                 <div
@@ -271,7 +389,7 @@ export function ScheduleBuilderSheet({
         {/* Block List */}
         <div className="schedule-content">
           <div className="blocks-list">
-            {plan.blocks.map((block, index) => {
+            {workingPlan.blocks.map((block, index) => {
               const isEditing = editingIndex === index;
               const error = validationErrors[index];
               const isReflowed = reflowedBlocks.has(index);
@@ -282,6 +400,7 @@ export function ScheduleBuilderSheet({
                   <div
                     className={cn(
                       "block-card",
+                      block.type === "break" ? "block-break" : "",
                       error ? "block-error" : isCurrent ? "block-current" : "block-default"
                     )}
                   >
@@ -297,7 +416,7 @@ export function ScheduleBuilderSheet({
                               <input
                                 type="time"
                                 value={editStart}
-                                onChange={(e) => setEditStart(e.target.value)}
+                                onChange={(e) => handleStartTimeChange(e.target.value)}
                                 className="time-input"
                                 step="300"
                               />
@@ -305,18 +424,22 @@ export function ScheduleBuilderSheet({
                               <input
                                 type="time"
                                 value={editEnd}
-                                onChange={(e) => setEditEnd(e.target.value)}
+                                onChange={(e) => handleEndTimeChange(e.target.value)}
                                 className="time-input"
                                 step="300"
                               />
                               <button
                                 onClick={handleEditSave}
+                                disabled={!!editError}
                                 className="save-btn"
                               >
                                 Save
                               </button>
                               <button
-                                onClick={() => setEditingIndex(null)}
+                                onClick={() => {
+                                  setEditingIndex(null);
+                                  setEditError(""); // Clear error on cancel
+                                }}
                                 className="cancel-btn"
                               >
                                 Cancel
@@ -334,6 +457,11 @@ export function ScheduleBuilderSheet({
                           )}
                         </div>
 
+                        {/* Edit error display */}
+                        {isEditing && editError && (
+                          <p className="error-text edit-error">{editError}</p>
+                        )}
+
                         {block.type === "drive" && (
                           <div className="drive-details">
                             <span className="drive-reason">{block.reason}</span>
@@ -344,19 +472,7 @@ export function ScheduleBuilderSheet({
 
                         {block.type === "break" && (
                           <div className="break-details">
-                            <div className="break-duration">~{getDuration(block.start, block.end)} min</div>
-                            {block.nearby && block.nearby.length > 0 && (
-                              <div className="nearby-options">
-                                {block.nearby.slice(0, 2).map((option, i) => (
-                                  <React.Fragment key={i}>
-                                    {i > 0 && <span className="separator">·</span>}
-                                    <span>
-                                      {option.name} • {option.dist_km} km
-                                    </span>
-                                  </React.Fragment>
-                                ))}
-                              </div>
-                            )}
+                            <div className="break-auto-info">Auto-adjusted between drive blocks</div>
                           </div>
                         )}
 
@@ -365,20 +481,13 @@ export function ScheduleBuilderSheet({
 
                       {/* Right Column - Actions */}
                       <div className="block-actions">
-                        <button
-                          onClick={() => handleEditStart(index, block)}
-                          className="action-btn"
-                          aria-label="Edit"
-                        >
-                          ✏️
-                        </button>
-                        {block.type === "break" && index > 0 && (
+                        {block.type === "drive" && (
                           <button
-                            onClick={() => onRemove?.(index)}
+                            onClick={() => handleEditStart(index, block)}
                             className="action-btn"
-                            aria-label="Delete"
+                            aria-label="Edit"
                           >
-                            🗑️
+                            ✏️
                           </button>
                         )}
                       </div>
@@ -393,26 +502,30 @@ export function ScheduleBuilderSheet({
         {/* Footer */}
         <div className="schedule-footer">
           <div className="footer-content">
-            <p className="footer-text">Drive ≤120m • Break 15m defaults • You can edit anytime</p>
+            <p className="footer-text">Drive ≤120m • Default 15m break</p>
             <div className="footer-actions">
-              <button
-                onClick={handleClose}
-                className="footer-btn footer-btn-ghost"
-              >
-                No thanks
-              </button>
-              <button
-                onClick={() => {}}
-                className="footer-btn footer-btn-outline"
-              >
-                Edit All
-              </button>
+              {!hasAcceptedSchedule && (
+                <button
+                  onClick={handleClose}
+                  className="footer-btn footer-btn-ghost"
+                >
+                  No thanks
+                </button>
+              )}
+              {hasAcceptedSchedule && (
+                <button
+                  onClick={() => onDeleteSchedule?.()}
+                  className="footer-btn footer-btn-delete"
+                >
+                  Delete Schedule
+                </button>
+              )}
               <button
                 onClick={handleAccept}
-                disabled={hasErrors}
+                disabled={hasAcceptedSchedule ? (!(hasUnsavedChanges || hasLocalChanges) || hasErrors) : hasErrors}
                 className="footer-btn footer-btn-primary"
               >
-                Accept Plan & Start at {firstBlockStart}
+                {hasAcceptedSchedule ? "Save Changes" : `Accept Plan & Start at ${firstBlockStart}`}
               </button>
             </div>
           </div>
