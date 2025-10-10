@@ -259,7 +259,7 @@ export default function DriverRequest() {
         <div className="spacer" />
         <div className="nav-items">
           <button className="btn-link" onClick={() => navigate("/drive-stats")}>Home</button>
-          <button className="btn-link" onClick={() => navigate("/driver")}>My Rides</button>
+          <button className="btn-link current-page" disabled>My Rides</button>
         </div>
      </nav>
      <main style={{ background: "#f8f9fa", minHeight: "calc(100vh - 56px)", position: "relative" }}>

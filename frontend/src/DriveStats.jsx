@@ -12,6 +12,10 @@ export default function DriveStats() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [acceptedSchedule, setAcceptedSchedule] = useState(() => {
+    const saved = localStorage.getItem('acceptedSchedule');
+    return saved ? JSON.parse(saved) : null;
+  });
   const WORK_KEY = "workSessionStartedAt";
   const [sessionStartedAt, setSessionStartedAt] = useState(() => {
   const raw = localStorage.getItem(WORK_KEY);
@@ -35,11 +39,21 @@ const [nowTick, setNowTick] = useState(Date.now());
         setSessionStartedAt(null);
       }
     };
+    
+    const onScheduleChange = () => {
+      const saved = localStorage.getItem('acceptedSchedule');
+      setAcceptedSchedule(saved ? JSON.parse(saved) : null);
+    };
+    
     window.addEventListener("workSession", onWorkSession);
+    window.addEventListener("storage", onScheduleChange);
+    window.addEventListener("scheduleUpdated", onScheduleChange);
 
     const t = setInterval(() => setNowTick(Date.now()), 1000); // 1s tick
     return () => {
       window.removeEventListener("workSession", onWorkSession);
+      window.removeEventListener("storage", onScheduleChange);
+      window.removeEventListener("scheduleUpdated", onScheduleChange);
       clearInterval(t);
     };
   }, []);
@@ -103,7 +117,25 @@ const earningsPerHour =
         <div className="brand">Uber</div>
         <div className="spacer" />
         <div className="nav-items">
-          <button className="btn-link" onClick={() => navigate("/drive-stats")}>Home</button>
+          {acceptedSchedule ? (
+            <div className="schedule-status">
+              <span className="schedule-indicator">●</span>
+              <div className="schedule-details">
+                <span className="schedule-text">Schedule Active</span>
+                <span className="schedule-info">
+                  {acceptedSchedule.blocks[0]?.start}–{acceptedSchedule.blocks[acceptedSchedule.blocks.length - 1]?.end} • {acceptedSchedule.blocks.length} blocks
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="schedule-status">
+              <span className="schedule-indicator schedule-indicator-inactive">●</span>
+              <div className="schedule-details">
+                <span className="schedule-text">No Active Schedule</span>
+              </div>
+            </div>
+          )}
+          <button className="btn-link current-page" disabled>Home</button>
           <button className="btn-link" onClick={() => navigate("/driver")}>My Rides</button>
         </div>
       </nav>
@@ -176,19 +208,8 @@ const earningsPerHour =
             <div className="kpi-sub">Based on today’s earnings</div>
           </div>
 
-          <div className="kpi-card card-surface">
-            <div className="kpi-label">Recommendations</div>
-            <div className="kpi-sub">Smart suggestions for your next trip</div>
-            <button className="btn-primary" onClick={() => navigate("/wellness")}>
-              Get Recommendations
-            </button>
-          </div>
+
         </aside>
-      {error && (
-        <div style={{ color: "red", textAlign: "center", marginTop: 10 }}>
-          ⚠ {String(error)}
-        </div>
-      )}
       </main>
     </div>
   );

@@ -21,6 +21,7 @@ function App() {
         <Route path="/wellness" element={<Wellness />} />
         <Route path="/heatmap" element={<HeatmapView />} />
         <Route path="/heatmap-timeline" element={<HeatmapTimeline />} />
+        <Route path="/my-rides" element={<DriverRequest />} />
         <Route path="/driver" element={<DriverRequest />} />
       </Routes>
     </HashRouter>
